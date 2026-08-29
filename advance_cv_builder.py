@@ -1480,6 +1480,17 @@ rendered_html = generate_cv_html(
 pdf_bytes = HTML(string=rendered_html).write_pdf() or b""
 base64_pdf = base64.b64encode(pdf_bytes).decode("utf-8")
 
+def render_pdf_preview(pdf_bytes: bytes, height: int = 700):
+    """Safely handles PDF previews without triggering Chrome iframe data-URI blocks."""
+    st.info("💡 Google Chrome blocks direct inline PDF previews on cloud apps for security. Use the download button below to view your full CV layout perfectly!")
+    st.download_button(
+        label="📥 Download & View CV PDF",
+        data=pdf_bytes,
+        file_name=f"{safe_filename}_CV.pdf",
+        mime="application/pdf",
+        use_container_width=True
+    )
+
 col_export, col_prev = st.columns([1, 2])
 
 with col_export:
@@ -1509,10 +1520,7 @@ with col_export:
 
 with col_prev:
     st.subheader("Live Preview")
-    st.markdown(
-        f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="700"></iframe>',
-        unsafe_allow_html=True
-    )
+    render_pdf_preview(pdf_bytes)
 
 # ============================================================================
 # FOOTER
