@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "advanced-cv-builder"
+version = "1.0.0"
+description = "Advanced CV Builder with AI Enhancement and Multiple Templates"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "streamlit>=1.38.0",
+    "jinja2>=3.1.4",
+    "weasyprint>=62.2",
+    "anthropic==0.28.0",
+    "python-dotenv>=1.0.1",
+    "Pillow",
+    "google-genai>=0.1.0"
+]
