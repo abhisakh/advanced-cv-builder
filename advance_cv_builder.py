@@ -208,10 +208,8 @@ def get_cv_score(cv_data: Dict) -> tuple[int, List[str]]:
 
 @st.cache_resource
 def get_gemini_client():
-    # 1. Try reading from the .env file / environment variables first
     api_key = os.getenv("GEMINI_API_KEY")
 
-    # 2. Fallback to Streamlit secrets if not found in environment
     if not api_key:
         try:
             api_key = st.secrets.get("GEMINI_API_KEY")
@@ -219,7 +217,7 @@ def get_gemini_client():
             pass
 
     if not api_key:
-        raise ValueError("GEMINI_API_KEY is missing. Please check your .env file.")
+        raise ValueError("GEMINI_API_KEY is missing. Please check your .env file or Streamlit secrets.")
 
     return genai.Client(api_key=api_key)
 
