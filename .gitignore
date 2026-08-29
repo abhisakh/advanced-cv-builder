@@ -1,0 +1,14 @@
+# Environment files
+.env
+
+# Python cache and build files
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# Streamlit/OS specific
+.streamlit/secrets.toml
+.DS_Store
