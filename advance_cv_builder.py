@@ -7,6 +7,7 @@ import base64
 import json
 import os
 import re
+import pymupdf
 from datetime import datetime
 from io import BytesIO
 from typing import Dict, List, Any, cast
@@ -96,13 +97,15 @@ DEFAULT_SECTIONS = [
     "Languages"
 ]
 
-SECTION_TYPES = ["Experience Layout",
+SECTION_TYPES = [
+    "Experience Layout",
     "Certification Layout",
     "Summary Layout",
     "Projects",
     "Technical Skills",
     "Soft Skills",
-    "Generic Text"]
+    "Generic Text"
+]
 
 # ============================================================================
 # UTILITY FUNCTIONS
@@ -1480,16 +1483,26 @@ rendered_html = generate_cv_html(
 pdf_bytes = HTML(string=rendered_html).write_pdf() or b""
 base64_pdf = base64.b64encode(pdf_bytes).decode("utf-8")
 
-def render_pdf_preview(pdf_bytes: bytes, height: int = 700):
-    """Safely handles PDF previews without triggering Chrome iframe data-URI blocks."""
-    st.info("💡 Google Chrome blocks direct inline PDF previews on cloud apps for security. Use the download button below to view your full CV layout perfectly!")
-    st.download_button(
-        label="📥 Download & View CV PDF",
-        data=pdf_bytes,
-        file_name=f"{safe_filename}_CV.pdf",
-        mime="application/pdf",
-        use_container_width=True
-    )
+def render_pdf_preview(pdf_bytes: bytes):
+    """Renders PDF pages as images to display a live visual preview in Streamlit."""
+    try:
+        # Open PDF from bytes using pymupdf
+        doc = pymupdf.open(stream=pdf_bytes, filetype="pdf")
+
+        st.write(f"**Previewing Page(s) ({len(doc)})**")
+
+        for page_num in range(len(doc)):
+            page = doc.load_page(page_num)
+            # Render page to a pixmap (image) at 150 DPI for crisp viewing
+            pix = page.get_pixmap(dpi=150)
+            img_bytes = pix.tobytes("png")
+
+            # Display the image natively in Streamlit
+            st.image(img_bytes, caption=f"Page {page_num + 1}", use_container_width=True)
+
+    except Exception as e:
+        st.warning(f"Could not render visual preview: {e}")
+        st.info("You can still use the download button below to view your CV.")
 
 col_export, col_prev = st.columns([1, 2])
 
