@@ -282,26 +282,22 @@ class TextFormatter:
         if not text:
             return ""
 
-        # Escape HTML special characters first (except basic formatting tags we introduce)
         text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
-        # Inline formatting
-        text = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', text)       # **bold**
-        text = re.sub(r'\*(.*?)\*', r'<em>\1</em>', text)                   # *italic*
-        text = re.sub(r'__(.*?)__', r'<u>\1</u>', text)                     # __underline__
-        text = re.sub(r'~~(.*?)~~', r'<del>\1</del>', text)                 # ~~strikethrough~~
-        text = re.sub(r'\^(.*?)\^', r'<sup>\1</sup>', text)                 # ^superscript^
-        text = re.sub(r'~(.*?)~', r'<sub>\1</sub>', text)                   # ~subscript~
-        text = re.sub(r'`(.*?)`', r'<code>\1</code>', text)                 # `code`
+        text = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', text)
+        text = re.sub(r'\*(.*?)\*', r'<em>\1</em>', text)
+        text = re.sub(r'__(.*?)__', r'<u>\1</u>', text)
+        text = re.sub(r'~~(.*?)~~', r'<del>\1</del>', text)
+        text = re.sub(r'\^(.*?)\^', r'<sup>\1</sup>', text)
+        text = re.sub(r'~(.*?)~', r'<sub>\1</sub>', text)
+        text = re.sub(r'`(.*?)`', r'<code>\1</code>', text)
 
-        # Handle lists (lines starting with * or -)
         lines = text.split('\n')
         processed_lines = []
         in_list = False
 
         for line in lines:
             stripped = line.strip()
-            # Check if line is a bullet point
             if re.match(r'^[\*\-]\s+', stripped):
                 bullet_content = re.sub(r'^[\*\-]\s+', '', stripped)
                 if not in_list:
@@ -312,7 +308,6 @@ class TextFormatter:
                 if in_list:
                     processed_lines.append('</ul>')
                     in_list = False
-                # Handle regular line breaks
                 if stripped:
                     processed_lines.append(f'{line}<br>')
                 else:
@@ -399,21 +394,17 @@ def get_image_base64(uploaded_file):
         return f"data:{uploaded_file.type};base64,{base64_encoded}"
     return None
 
-
 def validate_email(email: str) -> bool:
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     return re.match(pattern, email) is not None
-
 
 def validate_url(url: str) -> bool:
     pattern = r'^https?://[^\s/$.?#].[^\s]*$'
     return re.match(pattern, url) is not None
 
-
 def validate_phone(phone: str) -> bool:
     phone = phone.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
     return len(phone) >= 7 and phone.replace("+", "").isdigit()
-
 
 def save_version(cv_data: Dict, version_name: str):
     version_data = {
@@ -426,7 +417,6 @@ def save_version(cv_data: Dict, version_name: str):
         json.dump(version_data, f, indent=2)
     return file_path
 
-
 def load_all_versions(profile_name: str) -> List[Dict]:
     versions = []
     if os.path.exists(VERSION_HISTORY_DIR):
@@ -435,7 +425,6 @@ def load_all_versions(profile_name: str) -> List[Dict]:
                 with open(os.path.join(VERSION_HISTORY_DIR, file), 'r') as f:
                     versions.append(json.load(f))
     return sorted(versions, key=lambda x: x['timestamp'], reverse=True)
-
 
 def get_cv_score(cv_data: Dict) -> tuple[int, List[str]]:
     score = 0
@@ -490,27 +479,21 @@ def get_cv_score(cv_data: Dict) -> tuple[int, List[str]]:
 
     return min(100, score), suggestions
 
-
 @st.cache_resource
 def get_gemini_client():
     api_key = os.getenv("GEMINI_API_KEY")
-
     if not api_key:
         try:
             api_key = st.secrets.get("GEMINI_API_KEY")
         except Exception:
             pass
-
     if not api_key:
         raise ValueError("GEMINI_API_KEY is missing. Please check your .env file or Streamlit secrets.")
-
     return genai.Client(api_key=api_key)
-
 
 def get_cv_enhancement_suggestions(cv_data: Dict) -> str:
     try:
         client = get_gemini_client()
-
         prompt = f"""Analyze this CV data and provide specific, actionable improvements:
 
 Full Name: {cv_data.get('full_name', 'N/A')}
@@ -533,16 +516,13 @@ Be concise and actionable."""
             model="gemini-2.5-flash",
             contents=prompt,
         )
-
         return response.text or ""
     except Exception as e:
         return f"⚠️ Could not generate AI suggestions: {str(e)}"
 
-
 def get_job_tailored_suggestions(cv_data: Dict, job_description: str) -> str:
     try:
         client = get_gemini_client()
-
         prompt = f"""You are an expert ATS (Applicant Tracking System) reviewer and hiring consultant.
 Compare the provided Candidate CV against the Target Job Description below.
 
@@ -563,16 +543,13 @@ Provide a targeted gap analysis formatted cleanly in markdown with the following
 3. **Tailored Summary Recommendation**: Provide a rewritten, optimized version of the candidate's professional summary tailored specifically for this role.
 4. **Experience Bullet Point Modifications**: Suggest 3 specific bullet point edits from their past roles to highlight requirements from the job description.
 """
-
         response = client.models.generate_content(
             model="gemini-2.5-flash",
             contents=prompt,
         )
-
         return response.text or ""
     except Exception as e:
         return f"⚠️ Could not generate job tailoring analysis: {str(e)}"
-
 
 # ============================================================================
 # PAGE CONFIGURATION, STYLES & SESSION STATE
@@ -584,7 +561,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Initialize language state
 if "language" not in st.session_state:
     st.session_state.language = "en"
 
@@ -685,7 +661,6 @@ if "section_order" not in st.session_state:
 
 st.sidebar.title("🎯 CV Builder Pro")
 
-# Language Switcher Radio/Selectbox
 selected_lang_label = st.sidebar.selectbox(
     t("lang_switch_label"),
     options=["English", "Deutsch"],
@@ -821,18 +796,7 @@ with st.sidebar.expander(t("layout_control"), expanded=False):
 
     st.divider()
     st.subheader("🔄 " + t("reorder_priority"))
-    st.info("⚠️ Reorder sections here to change their order in PDF export. UI will show all sections, but PDF respects this order.", icon="ℹ️")
-
-    # Ensure all sections are in order
-    for sec in available_sections:
-        if sec not in st.session_state.section_order:
-            st.session_state.section_order.append(sec)
-
-    # Remove deleted sections
-    st.session_state.section_order = [s for s in st.session_state.section_order if s in available_sections]
-
-    # Interactive reordering with up/down buttons
-    st.write("**Current section order (affects PDF export):**")
+    st.info("⚠️ Reorder sections here to change their order in PDF export.", icon="ℹ️")
 
     new_order = list(st.session_state.section_order)
 
@@ -865,7 +829,6 @@ with st.sidebar.expander(t("layout_control"), expanded=False):
 # SIDEBAR - PROFILE PHOTO & FRAME OFFSETS
 # ============================================================================
 
-# Initialize photo variables OUTSIDE expander to prevent NameError
 photo_b64 = None
 photo_settings = {
     "position": "Header Right",
@@ -959,9 +922,14 @@ def render_experience_items(exp_list):
         loc = exp.get("location", "")
         summary = TextFormatter.format_html_for_pdf(exp.get("summary", ""))
 
+        # Custom styling parameters for company name
+        comp_bold = "font-weight: bold;" if exp.get("bold_company", False) else ""
+        comp_italic = "font-style: italic;" if exp.get("italic_company", False) else ""
+        comp_size = f"font-size: {exp.get('company_size', 10)}pt;"
+        company_html = f'<span class="entry-subtitle" style="{comp_bold} {comp_italic} {comp_size}">{company}</span>' if company else ""
+
         title_html = f'<span class="entry-title">{TextFormatter.format_html_for_pdf(title)}</span>' if title else ""
         date_html = f'<span class="entry-meta">{date_range}</span>' if date_range else ""
-        company_html = f'<span class="entry-subtitle">{company}</span>' if company else ""
 
         link_html = f'<div class="entry-meta" style="margin-top: 2px;"><a href="{website}" target="_blank">{link_label} &rarr;</a></div>' if website else ""
         loc_html = f'<span class="entry-meta" style="margin-left: 8px;">📍 {loc}</span>' if loc else ""
@@ -1006,7 +974,13 @@ def render_certification_items(cert_list):
 
         title_html = f'<span class="entry-title">{title_str}</span>' if title_str else ""
         date_html = f'<span class="entry-meta">{date_str}</span>' if date_str else ""
-        issuer_html = f'<div class="entry-subtitle">{issuer_str}</div>' if issuer_str else ""
+
+        # Custom styling parameters for issuer name
+        iss_bold = "font-weight: bold;" if cert.get("bold_issuer", False) else ""
+        iss_italic = "font-style: italic;" if cert.get("italic_issuer", False) else ""
+        iss_size = f"font-size: {cert.get('issuer_size', 10)}pt;"
+        issuer_html = f'<div class="entry-subtitle" style="{iss_bold} {iss_italic} {iss_size}">{issuer_str}</div>' if issuer_str else ""
+
         link_html = f'<div class="entry-meta"><a href="{url_str}" target="_blank">{label_str} &rarr;</a></div>' if url_str else ""
         summary_html = f'<p>{summary_str}</p>' if summary_str else ""
 
@@ -1025,15 +999,6 @@ def render_certification_items(cert_list):
     return sec_html
 
 def render_single_section(sec_name, sections_data, layout_mode="Two Columns", custom_sections=None, custom_section_types=None):
-    """Render a single section for PDF export
-
-    Args:
-        sec_name: Name of the section to render
-        sections_data: Dictionary containing all sections data
-        layout_mode: "Two Columns" or "Single Column"
-        custom_sections: List of custom section names (from session state)
-        custom_section_types: Dict of custom section types (from session state)
-    """
     sec_html = ""
     custom_sections = custom_sections or []
     custom_section_types = custom_section_types or {}
@@ -1088,13 +1053,20 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
             formatted_highlights = TextFormatter.format_html_for_pdf(edu.get("highlights", ""))
             gpa_block = f"<div class='entry-meta'>GPA: {edu.get('gpa', '')}</div>" if edu.get("gpa") else ""
             high_block = f"<p>{formatted_highlights}</p>" if formatted_highlights else ""
+
+            # Custom styling parameters for school name
+            sch_bold = "font-weight: bold;" if edu.get("bold_school", False) else ""
+            sch_italic = "font-style: italic;" if edu.get("italic_school", False) else ""
+            sch_size = f"font-size: {edu.get('school_size', 10)}pt;"
+            school_html = f'<div class="entry-subtitle" style="{sch_bold} {sch_italic} {sch_size}">{edu.get("school", "")}</div>'
+
             sec_html += f'''
             <div class="entry">
                 <div class="entry-header">
                     <span class="entry-title">{edu.get("degree", "")}</span>
                     <span class="entry-meta">{edu.get("graduation", "")}</span>
                 </div>
-                <div class="entry-subtitle">{edu.get("school", "")}</div>
+                {school_html}
                 {gpa_block}
                 {high_block}
             </div>
@@ -1243,7 +1215,7 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
         .entry {{ margin-bottom: 12px; }}
         .entry-header {{ display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }}
         .entry-title {{ font-weight: bold; font-size: {body_size + 1}pt; color: #000; }}
-        .entry-subtitle {{ font-size: {body_size - 1}pt; color: #666; font-style: italic; }}
+        .entry-subtitle {{ font-size: {body_size - 1}pt; color: #666; }}
         .entry-meta {{ font-size: {body_size - 1}pt; color: #888; }}
         ul {{ margin-left: 20px; margin-bottom: 8px; }}
         li {{ margin-bottom: 3px; }}
@@ -1289,7 +1261,6 @@ def render_pdf_preview(pdf_bytes: bytes):
 
 col_edit_area, col_prev = st.columns([1.2, 1])
 
-# 1. Left Column Scrollable Viewport
 with col_edit_area:
     with st.container(height=800, border=False):
         st.title(t("personal_info"))
@@ -1376,12 +1347,12 @@ with col_edit_area:
                 st.divider()
             sections_data["Soft Skills"] = soft_items
 
-        # -------- CERTIFICATIONS --------
+        # -------- CERTIFICATIONS (With Issuer Formatting & Italic Toggle) --------
         with st.expander(t("certifications")):
             num_certs = int(st.number_input(t("num_certs"), 0, 10, len(saved_sec.get("Certifications", [])) if isinstance(saved_sec.get("Certifications"), list) else 0))
             certs = []
             for i in range(num_certs):
-                cert_data = saved_sec.get("Certifications", [])[i] if isinstance(saved_sec.get("Certifications"), list) and i < len(saved_sec.get("Certifications", [])) else {}
+                cert_data = saved_sec.get("Certifications", [])[i] if isinstance(saved_sec.get("Certifications", []), list) and i < len(saved_sec.get("Certifications", [])) else {}
                 col_title, col_issuer, col_date = st.columns([2, 2, 1])
                 with col_title:
                     title_val = st.text_input(t("name"), key=f"cert_title_{i}", value=cert_data.get("title", ""))
@@ -1389,6 +1360,16 @@ with col_edit_area:
                     issuer_val = st.text_input(t("issuer"), key=f"cert_issuer_{i}", value=cert_data.get("issuer", ""))
                 with col_date:
                     date_val = st.text_input(t("date"), key=f"cert_date_{i}", value=cert_data.get("date", ""))
+
+                # --- FORMATTING BUTTONS FOR ISSUER ---
+                col_i_bold, col_i_italic, col_i_size = st.columns(3)
+                with col_i_bold:
+                    bold_issuer = st.checkbox("Bold Issuer", key=f"cert_bold_issuer_{i}", value=cert_data.get("bold_issuer", False))
+                with col_i_italic:
+                    italic_issuer = st.checkbox("Italic Issuer", key=f"cert_italic_issuer_{i}", value=cert_data.get("italic_issuer", True))
+                with col_i_size:
+                    issuer_size = st.slider("Issuer Size (pt)", 8, 16, cert_data.get("issuer_size", 10), key=f"cert_size_issuer_{i}")
+
                 col_url, col_label = st.columns([2, 1])
                 with col_url:
                     url_val = st.text_input(t("website_url"), key=f"cert_url_{i}", value=cert_data.get("url", ""))
@@ -1396,7 +1377,11 @@ with col_edit_area:
                     label_val = st.text_input(t("link_label"), key=f"cert_label_{i}", value=cert_data.get("label", "View Credentials"))
                 summary_val = st.text_area(t("summary"), key=f"cert_summary_{i}", value=cert_data.get("summary", ""), height=60)
                 if title_val or issuer_val or url_val:
-                    certs.append({"title": title_val, "issuer": issuer_val, "date": date_val, "url": url_val, "label": label_val, "summary": summary_val})
+                    certs.append({
+                        "title": title_val, "issuer": issuer_val, "date": date_val, "url": url_val,
+                        "label": label_val, "summary": summary_val,
+                        "bold_issuer": bold_issuer, "italic_issuer": italic_issuer, "issuer_size": issuer_size
+                    })
                 st.divider()
             sections_data["Certifications"] = certs
 
@@ -1405,7 +1390,7 @@ with col_edit_area:
             num_awards = int(st.number_input(t("num_awards"), 0, 10, len(saved_sec.get("Awards", [])) if isinstance(saved_sec.get("Awards"), list) else 0))
             awards = []
             for i in range(num_awards):
-                award_data = saved_sec.get("Awards", [])[i] if isinstance(saved_sec.get("Awards"), list) and i < len(saved_sec.get("Awards", [])) else {}
+                award_data = saved_sec.get("Awards", [])[i] if isinstance(saved_sec.get("Awards", []), list) and i < len(saved_sec.get("Awards", [])) else {}
                 col_title, col_awarder = st.columns(2)
                 with col_title:
                     a_title = st.text_input(t("name"), key=f"award_title_{i}", value=award_data.get("title", ""))
@@ -1426,7 +1411,7 @@ with col_edit_area:
             num_langs = int(st.number_input(t("num_langs"), 0, 10, len(saved_sec.get("Languages", [])) if isinstance(saved_sec.get("Languages"), list) else 0))
             langs = []
             for i in range(num_langs):
-                lang_data = saved_sec.get("Languages", [])[i] if isinstance(saved_sec.get("Languages"), list) and i < len(saved_sec.get("Languages", [])) else {}
+                lang_data = saved_sec.get("Languages", [])[i] if isinstance(saved_sec.get("Languages", []), list) and i < len(saved_sec.get("Languages", [])) else {}
                 col_name, col_desc = st.columns(2)
                 with col_name:
                     name_val = st.text_input(t("name"), key=f"lang_name_{i}", value=lang_data.get("name", ""))
@@ -1437,17 +1422,27 @@ with col_edit_area:
                 st.divider()
             sections_data["Languages"] = langs
 
-        # -------- EXPERIENCE --------
+        # -------- EXPERIENCE (With Company Formatting, Italic Toggle & Bold Toggle) --------
         with st.expander(t("experience")):
             num_exp = int(st.number_input(t("num_exp"), 0, 10, len(saved_sec.get("Experience", [])) if isinstance(saved_sec.get("Experience"), list) else 1))
             experiences = []
             for i in range(num_exp):
-                exp_data = saved_sec.get("Experience", [])[i] if isinstance(saved_sec.get("Experience"), list) and i < len(saved_sec.get("Experience", [])) else {}
+                exp_data = saved_sec.get("Experience", [])[i] if isinstance(saved_sec.get("Experience", []), list) and i < len(saved_sec.get("Experience", [])) else {}
                 col_company, col_title = st.columns(2)
                 with col_company:
                     company = st.text_input(t("company_name"), key=f"exp_company_{i}", value=exp_data.get("company", ""))
                 with col_title:
                     job_title = st.text_input(t("position_title"), key=f"exp_title_{i}", value=exp_data.get("title", ""))
+
+                # --- FORMATTING BUTTONS FOR COMPANY NAME ---
+                col_c_bold, col_c_italic, col_c_size = st.columns(3)
+                with col_c_bold:
+                    bold_company = st.checkbox("Bold Company", key=f"exp_bold_comp_{i}", value=exp_data.get("bold_company", False))
+                with col_c_italic:
+                    italic_company = st.checkbox("Italic Company", key=f"exp_italic_comp_{i}", value=exp_data.get("italic_company", True))
+                with col_c_size:
+                    company_size = st.slider("Company Size (pt)", 8, 16, exp_data.get("company_size", 10), key=f"exp_size_comp_{i}")
+
                 col_date, col_loc = st.columns(2)
                 with col_date:
                     date_range = st.text_input(t("date_range"), key=f"exp_date_{i}", value=exp_data.get("date_range", ""))
@@ -1464,21 +1459,36 @@ with col_edit_area:
                 bullets_input = st.text_area(t("achievements"), key=f"exp_bullets_{i}", value="\n".join(bullets), height=80)
                 bullets_list = [b.strip() for b in bullets_input.split("\n") if b.strip()]
                 if company or job_title or exp_summary or bullets_list:
-                    experiences.append({"company": company, "title": job_title, "date_range": date_range, "location": exp_location, "website": exp_website, "link_label": exp_link_label, "summary": exp_summary, "bullets": bullets_list})
+                    experiences.append({
+                        "company": company, "title": job_title, "date_range": date_range,
+                        "location": exp_location, "website": exp_website, "link_label": exp_link_label,
+                        "summary": exp_summary, "bullets": bullets_list,
+                        "bold_company": bold_company, "italic_company": italic_company, "company_size": company_size
+                    })
                 st.divider()
             sections_data["Experience"] = experiences
 
-        # -------- EDUCATION --------
+        # -------- EDUCATION (With School Formatting, Italic Toggle & Bold Toggle) --------
         with st.expander(t("education")):
-            num_edu = int(st.number_input(t("num_edu"), 0, 10, len(saved_sec.get("Education", [])) if isinstance(saved_sec.get("Education"), list) else 1))
+            num_edu = int(st.number_input(t("num_edu"), 0, 10, len(saved_sec.get("Education", [])) if isinstance(saved_sec.get("Education", list), list) else 1))
             educations = []
             for i in range(num_edu):
-                edu_data = saved_sec.get("Education", [])[i] if isinstance(saved_sec.get("Education"), list) and i < len(saved_sec.get("Education", [])) else {}
+                edu_data = saved_sec.get("Education", [])[i] if isinstance(saved_sec.get("Education", []), list) and i < len(saved_sec.get("Education", [])) else {}
                 col_degree, col_school = st.columns(2)
                 with col_degree:
                     degree = st.text_input(t("position_title"), key=f"edu_degree_{i}", value=edu_data.get("degree", ""))
                 with col_school:
                     school = st.text_input(t("school"), key=f"edu_school_{i}", value=edu_data.get("school", ""))
+
+                # --- FORMATTING BUTTONS FOR SCHOOL NAME ---
+                col_s_bold, col_s_italic, col_s_size = st.columns(3)
+                with col_s_bold:
+                    bold_school = st.checkbox("Bold School", key=f"edu_bold_school_{i}", value=edu_data.get("bold_school", False))
+                with col_s_italic:
+                    italic_school = st.checkbox("Italic School", key=f"edu_italic_school_{i}", value=edu_data.get("italic_school", True))
+                with col_s_size:
+                    school_size = st.slider("School Size (pt)", 8, 16, edu_data.get("school_size", 10), key=f"edu_size_school_{i}")
+
                 col_grad_start, col_grad_end = st.columns(2)
                 with col_grad_start:
                     graduation = st.text_input(t("graduation_date"), key=f"edu_grad_{i}", value=edu_data.get("graduation", ""))
@@ -1486,16 +1496,20 @@ with col_edit_area:
                     gpa = st.text_input(t("gpa"), key=f"edu_gpa_{i}", value=edu_data.get("gpa", ""))
                 highlights = st.text_area(t("highlights"), key=f"edu_highlights_{i}", value=edu_data.get("highlights", ""), height=60)
                 if degree or school:
-                    educations.append({"degree": degree, "school": school, "graduation": graduation, "gpa": gpa, "highlights": highlights})
+                    educations.append({
+                        "degree": degree, "school": school, "graduation": graduation,
+                        "gpa": gpa, "highlights": highlights,
+                        "bold_school": bold_school, "italic_school": italic_school, "school_size": school_size
+                    })
                 st.divider()
             sections_data["Education"] = educations
 
         # -------- PROJECTS --------
         with st.expander(t("projects")):
-            num_projects = int(st.number_input(t("num_projects"), 0, 10, len(saved_sec.get("Projects", [])) if isinstance(saved_sec.get("Projects"), list) else 0))
+            num_projects = int(st.number_input(t("num_projects"), 0, 10, len(saved_sec.get("Projects", [])) if isinstance(saved_sec.get("Projects", list), list) else 0))
             projects = []
             for i in range(num_projects):
-                proj_data = saved_sec.get("Projects", [])[i] if isinstance(saved_sec.get("Projects"), list) and i < len(saved_sec.get("Projects", [])) else {}
+                proj_data = saved_sec.get("Projects", [])[i] if isinstance(saved_sec.get("Projects", []), list) and i < len(saved_sec.get("Projects", [])) else {}
                 proj_name = st.text_input(t("project_name"), key=f"proj_name_{i}", value=proj_data.get("name", ""))
                 proj_desc = st.text_area(t("project_desc"), key=f"proj_desc_{i}", value=proj_data.get("description", ""), height=60)
                 proj_date = st.text_input(t("date_range"), key=f"proj_date_{i}", value=proj_data.get("date_range", ""))
