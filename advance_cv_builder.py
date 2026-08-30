@@ -143,7 +143,10 @@ TRANSLATIONS = {
         "live_preview": "👀 Live Preview",
         "preview_pages": "Preview ({num} Page/s)",
         "pro_tips": "💡 Pro Tips: Fill all fields with *, keep summary 150-300 words, use action verbs in experience bullets, maintain consistent formatting",
-        "lang_switch_label": "🌐 Sprache / Language"
+        "lang_switch_label": "🌐 Sprache / Language",
+        "visit_website": "Visit Website",
+        "view_credentials": "View Credentials",
+        "view_project": "View Project"
     },
     "de": {
         "page_title": "Erweiterter Lebenslauf-Generator Pro",
@@ -266,7 +269,10 @@ TRANSLATIONS = {
         "live_preview": "👀 Live-Vorschau",
         "preview_pages": "Vorschau ({num} Seite/n)",
         "pro_tips": "💡 Profi-Tipps: Alle Felder mit * ausfüllen, Zusammenfassung 150-300 Wörter lang halten, Aktionsverben nutzen",
-        "lang_switch_label": "🌐 Language / Sprache"
+        "lang_switch_label": "🌐 Language / Sprache",
+        "visit_website": "Website besuchen",
+        "view_credentials": "Nachweise anzeigen",
+        "view_project": "Projekt ansehen"
     }
 }
 
@@ -917,12 +923,11 @@ def render_experience_items(exp_list):
         company = exp.get("company", "")
         title = exp.get("title", "")
         website = exp.get("website", "")
-        link_label = exp.get("link_label") or "Visit Website"
+        link_label = exp.get("link_label") or t("visit_website")
         date_range = exp.get("date_range", "")
         loc = exp.get("location", "")
         summary = TextFormatter.format_html_for_pdf(exp.get("summary", ""))
 
-        # Custom styling parameters for company name
         comp_bold = "font-weight: bold;" if exp.get("bold_company", False) else ""
         comp_italic = "font-style: italic;" if exp.get("italic_company", False) else ""
         comp_size = f"font-size: {exp.get('company_size', 10)}pt;"
@@ -967,7 +972,7 @@ def render_certification_items(cert_list):
     for cert in cert_list:
         title_str = cert.get("title", "")
         url_str = cert.get("url", "")
-        label_str = cert.get("label") or "View Credentials"
+        label_str = cert.get("label") or t("view_credentials")
         issuer_str = cert.get("issuer", "")
         date_str = cert.get("date", "")
         summary_str = TextFormatter.format_html_for_pdf(cert.get("summary", ""))
@@ -975,7 +980,6 @@ def render_certification_items(cert_list):
         title_html = f'<span class="entry-title">{title_str}</span>' if title_str else ""
         date_html = f'<span class="entry-meta">{date_str}</span>' if date_str else ""
 
-        # Custom styling parameters for issuer name
         iss_bold = "font-weight: bold;" if cert.get("bold_issuer", False) else ""
         iss_italic = "font-style: italic;" if cert.get("italic_issuer", False) else ""
         iss_size = f"font-size: {cert.get('issuer_size', 10)}pt;"
@@ -1005,7 +1009,7 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
 
     if sec_name == "Profiles & Links" and sections_data.get("Profiles & Links"):
         links = sections_data["Profiles & Links"]
-        sec_html += '<div class="section"><h2>Profiles & Links</h2><div class="social-links">'
+        sec_html += f'<div class="section"><h2>{t("profiles_links")}</h2><div class="social-links">'
         if links.get("GitHub"):
             sec_html += f'<a href="{links["GitHub"]}" target="_blank"><i class="fab fa-github"></i> GitHub</a>'
         if links.get("LinkedIn"):
@@ -1015,7 +1019,7 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
         sec_html += '</div></div>'
 
     elif sec_name == "Technical Skills" and sections_data.get("Technical Skills"):
-        sec_html += '<div class="section"><h2>Technical Skills</h2>'
+        sec_html += f'<div class="section"><h2>{t("tech_skills")}</h2>'
         for item in sections_data["Technical Skills"]:
             name = TextFormatter.format_html_for_pdf(item.get("name", ""))
             desc = TextFormatter.format_html_for_pdf(item.get("description", ""))
@@ -1030,7 +1034,7 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
         sec_html += '</div>'
 
     elif sec_name == "Soft Skills" and sections_data.get("Soft Skills"):
-        sec_html += '<div class="section"><h2>Soft Skills</h2>'
+        sec_html += f'<div class="section"><h2>{t("soft_skills")}</h2>'
         for item in sections_data["Soft Skills"]:
             name = TextFormatter.format_html_for_pdf(item.get("name", ""))
             desc = TextFormatter.format_html_for_pdf(item.get("description", ""))
@@ -1045,16 +1049,15 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
         sec_html += '</div>'
 
     elif sec_name == "Experience" and sections_data.get("Experience"):
-        sec_html += f'<div class="section"><h2>Experience</h2>{render_experience_items(sections_data["Experience"])}</div>'
+        sec_html += f'<div class="section"><h2>{t("experience")}</h2>{render_experience_items(sections_data["Experience"])}</div>'
 
     elif sec_name == "Education" and sections_data.get("Education"):
-        sec_html += '<div class="section"><h2>Education</h2>'
+        sec_html += f'<div class="section"><h2>{t("education")}</h2>'
         for edu in sections_data["Education"]:
             formatted_highlights = TextFormatter.format_html_for_pdf(edu.get("highlights", ""))
             gpa_block = f"<div class='entry-meta'>GPA: {edu.get('gpa', '')}</div>" if edu.get("gpa") else ""
             high_block = f"<p>{formatted_highlights}</p>" if formatted_highlights else ""
 
-            # Custom styling parameters for school name
             sch_bold = "font-weight: bold;" if edu.get("bold_school", False) else ""
             sch_italic = "font-style: italic;" if edu.get("italic_school", False) else ""
             sch_size = f"font-size: {edu.get('school_size', 10)}pt;"
@@ -1074,7 +1077,7 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
         sec_html += '</div>'
 
     elif sec_name == "Projects" and sections_data.get("Projects"):
-        sec_html += '<div class="section"><h2>Projects</h2>'
+        sec_html += f'<div class="section"><h2>{t("projects")}</h2>'
         for proj in sections_data["Projects"]:
             name = TextFormatter.format_html_for_pdf(proj.get("name", ""))
             desc = TextFormatter.format_html_for_pdf(proj.get("description", ""))
@@ -1097,10 +1100,10 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
         sec_html += '</div>'
 
     elif sec_name == "Certifications" and sections_data.get("Certifications"):
-        sec_html += f'<div class="section"><h2>Certifications</h2>{render_certification_items(sections_data["Certifications"])}</div>'
+        sec_html += f'<div class="section"><h2>{t("certifications")}</h2>{render_certification_items(sections_data["Certifications"])}</div>'
 
     elif sec_name == "Awards" and sections_data.get("Awards"):
-        sec_html += '<div class="section"><h2>Awards</h2>'
+        sec_html += f'<div class="section"><h2>{t("awards")}</h2>'
         for awd in sections_data["Awards"]:
             title = TextFormatter.format_html_for_pdf(awd.get("title", ""))
             awarder = TextFormatter.format_html_for_pdf(awd.get("awarder", ""))
@@ -1120,7 +1123,7 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
         sec_html += '</div>'
 
     elif sec_name == "Languages" and sections_data.get("Languages"):
-        sec_html += '<div class="section"><h2>Languages</h2>'
+        sec_html += f'<div class="section"><h2>{t("languages")}</h2>'
         for lang in sections_data["Languages"]:
             name = TextFormatter.format_html_for_pdf(lang.get("name", ""))
             desc = TextFormatter.format_html_for_pdf(lang.get("description", ""))
@@ -1347,7 +1350,7 @@ with col_edit_area:
                 st.divider()
             sections_data["Soft Skills"] = soft_items
 
-        # -------- CERTIFICATIONS (With Issuer Formatting & Italic Toggle) --------
+        # -------- CERTIFICATIONS --------
         with st.expander(t("certifications")):
             num_certs = int(st.number_input(t("num_certs"), 0, 10, len(saved_sec.get("Certifications", [])) if isinstance(saved_sec.get("Certifications"), list) else 0))
             certs = []
@@ -1361,7 +1364,6 @@ with col_edit_area:
                 with col_date:
                     date_val = st.text_input(t("date"), key=f"cert_date_{i}", value=cert_data.get("date", ""))
 
-                # --- FORMATTING BUTTONS FOR ISSUER ---
                 col_i_bold, col_i_italic, col_i_size = st.columns(3)
                 with col_i_bold:
                     bold_issuer = st.checkbox("Bold Issuer", key=f"cert_bold_issuer_{i}", value=cert_data.get("bold_issuer", False))
@@ -1374,7 +1376,7 @@ with col_edit_area:
                 with col_url:
                     url_val = st.text_input(t("website_url"), key=f"cert_url_{i}", value=cert_data.get("url", ""))
                 with col_label:
-                    label_val = st.text_input(t("link_label"), key=f"cert_label_{i}", value=cert_data.get("label", "View Credentials"))
+                    label_val = st.text_input(t("link_label"), key=f"cert_label_{i}", value=cert_data.get("label", t("view_credentials")))
                 summary_val = st.text_area(t("summary"), key=f"cert_summary_{i}", value=cert_data.get("summary", ""), height=60)
                 if title_val or issuer_val or url_val:
                     certs.append({
@@ -1422,7 +1424,7 @@ with col_edit_area:
                 st.divider()
             sections_data["Languages"] = langs
 
-        # -------- EXPERIENCE (With Company Formatting, Italic Toggle & Bold Toggle) --------
+        # -------- EXPERIENCE --------
         with st.expander(t("experience")):
             num_exp = int(st.number_input(t("num_exp"), 0, 10, len(saved_sec.get("Experience", [])) if isinstance(saved_sec.get("Experience"), list) else 1))
             experiences = []
@@ -1434,7 +1436,6 @@ with col_edit_area:
                 with col_title:
                     job_title = st.text_input(t("position_title"), key=f"exp_title_{i}", value=exp_data.get("title", ""))
 
-                # --- FORMATTING BUTTONS FOR COMPANY NAME ---
                 col_c_bold, col_c_italic, col_c_size = st.columns(3)
                 with col_c_bold:
                     bold_company = st.checkbox("Bold Company", key=f"exp_bold_comp_{i}", value=exp_data.get("bold_company", False))
@@ -1452,7 +1453,7 @@ with col_edit_area:
                 with col_url:
                     exp_website = st.text_input(t("website_url"), key=f"exp_url_{i}", value=exp_data.get("website", ""))
                 with col_label:
-                    exp_link_label = st.text_input(t("link_label"), key=f"exp_link_label_{i}", value=exp_data.get("link_label", "Visit Website"))
+                    exp_link_label = st.text_input(t("link_label"), key=f"exp_link_label_{i}", value=exp_data.get("link_label", t("visit_website")))
                 exp_summary = st.text_area(t("summary"), key=f"exp_summary_{i}", value=exp_data.get("summary", ""), height=60, placeholder=t("summary_placeholder"))
                 bullets = exp_data.get("bullets", [])
                 if isinstance(bullets, str): bullets = [bullets]
@@ -1468,7 +1469,7 @@ with col_edit_area:
                 st.divider()
             sections_data["Experience"] = experiences
 
-        # -------- EDUCATION (With School Formatting, Italic Toggle & Bold Toggle) --------
+        # -------- EDUCATION --------
         with st.expander(t("education")):
             num_edu = int(st.number_input(t("num_edu"), 0, 10, len(saved_sec.get("Education", [])) if isinstance(saved_sec.get("Education", list), list) else 1))
             educations = []
@@ -1480,7 +1481,6 @@ with col_edit_area:
                 with col_school:
                     school = st.text_input(t("school"), key=f"edu_school_{i}", value=edu_data.get("school", ""))
 
-                # --- FORMATTING BUTTONS FOR SCHOOL NAME ---
                 col_s_bold, col_s_italic, col_s_size = st.columns(3)
                 with col_s_bold:
                     bold_school = st.checkbox("Bold School", key=f"edu_bold_school_{i}", value=edu_data.get("bold_school", False))
@@ -1517,7 +1517,7 @@ with col_edit_area:
                 with col_url:
                     proj_website = st.text_input(t("website_url"), key=f"proj_website_{i}", value=proj_data.get("website", ""))
                 with col_label:
-                    proj_link_label = st.text_input(t("link_label"), key=f"proj_link_label_{i}", value=proj_data.get("link_label", "View Project"))
+                    proj_link_label = st.text_input(t("link_label"), key=f"proj_link_label_{i}", value=proj_data.get("link_label", t("view_project")))
                 proj_summary = st.text_area(t("summary"), key=f"proj_summary_{i}", value=proj_data.get("summary", ""), height=60)
                 if proj_name or proj_desc:
                     projects.append({"name": proj_name, "description": proj_desc, "date_range": proj_date, "website": proj_website, "link_label": proj_link_label, "summary": proj_summary})
