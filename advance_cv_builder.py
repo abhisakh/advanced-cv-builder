@@ -79,6 +79,7 @@ TRANSLATIONS = {
         "email": "Email *",
         "email_error": "❌ Invalid email format",
         "location": "Location",
+        "address": "Address / City, Country",
         "residency": "Residency Status",
         "relocation": "Relocation",
         "linkedin_profile": "LinkedIn Profile",
@@ -210,6 +211,7 @@ TRANSLATIONS = {
         "email": "E-Mail *",
         "email_error": "❌ Ungültiges E-Mail-Format",
         "location": "Standort",
+        "address": "Adresse / Ort, Land",
         "residency": "Aufenthaltsstatus",
         "relocation": "Umzugsbereitschaft",
         "linkedin_profile": "LinkedIn-Profil",
@@ -410,6 +412,28 @@ SECTION_TYPES = [
 # ============================================================================
 # UTILITY FUNCTIONS
 # ============================================================================
+
+def section_visibility_toggle(sec_name: str):
+    """Render a single, authoritative 'show/hide' checkbox for a CV section and
+    sync the result into st.session_state.section_visibility.
+
+    This is the ONLY widget allowed to write to section_visibility[sec_name].
+    Other UI (e.g. the sidebar layout panel) must only ever *read* that value,
+    never render a second checkbox for the same section — otherwise the two
+    widgets fight over the value on every rerun and unchecking one can get
+    silently reverted by the other (the exact bug this fixes).
+    """
+    current = st.session_state.section_visibility.get(sec_name, True)
+    new_val = st.checkbox(
+        "👁️ Show this section in CV",
+        value=current,
+        key=f"inline_vis_{sec_name}"
+    )
+    st.session_state.section_visibility[sec_name] = new_val
+    if not new_val:
+        st.caption("🚫 Hidden — this section will not appear in the exported CV.")
+    return new_val
+
 
 def auto_save_cv(cv_data: Dict, custom_sections: List, custom_section_types: Dict, section_visibility: Dict, section_placement: Dict, section_order: List):
     """Periodically checkpoint user edits to local storage."""
@@ -707,6 +731,15 @@ if "show_ai_suggestions" not in st.session_state:
 if "show_job_match" not in st.session_state:
     st.session_state.show_job_match = False
 
+if "header_visibility" not in st.session_state:
+    st.session_state.header_visibility = {
+        "title": True,
+        "location": True,
+        "phone": True,
+        "email": True,
+        "links": True
+    }
+
 if "section_visibility" not in st.session_state:
     st.session_state.section_visibility = autosaved_data.get("section_visibility", {sec: True for sec in DEFAULT_SECTIONS})
 if "section_placement" not in st.session_state:
@@ -828,6 +861,14 @@ with st.sidebar.expander(t("template_styling"), expanded=True):
     layout_mode = st.radio(t("layout_mode"), [t("two_columns"), t("single_column")])
     layout_mode = "Two Columns" if layout_mode == t("two_columns") else "Single Column"
 
+with st.sidebar.expander("👁️ Top Header Visibility Controls", expanded=False):
+    for field in ["title", "location", "phone", "email", "links"]:
+        st.session_state.header_visibility[field] = st.checkbox(
+            f"Show {field.capitalize()}",
+            value=st.session_state.header_visibility.get(field, True),
+            key=f"toggle_hdr_{field}"
+        )
+
 with st.sidebar.expander(t("layout_control"), expanded=False):
     st.caption(t("section_control_caption"))
 
@@ -849,21 +890,18 @@ with st.sidebar.expander(t("layout_control"), expanded=False):
         if s not in st.session_state.section_order:
             st.session_state.section_order.append(s)
 
+    st.caption("💡 Visibility is toggled inside each section in the main editor (👁️ Show this section in CV). This panel only controls column placement and order.")
     for sec in list(st.session_state.section_order):
-        st.markdown(f"**{sec}**")
         c_vis, c_pos = st.columns([1, 1])
         with c_vis:
-            st.session_state.section_visibility[sec] = st.checkbox(
-                "Show",
-                value=st.session_state.section_visibility.get(sec, True),
-                key=f"vis_{sec}"
-            )
+            is_vis = st.session_state.section_visibility.get(sec, True)
+            st.write(("👁️ " if is_vis else "🚫 ") + sec)
         with c_pos:
             st.session_state.section_placement[sec] = st.selectbox(
                 "Column",
                 ["Main Column", "Sidebar"],
                 index=0 if st.session_state.section_placement.get(sec, "Main Column") == "Main Column" else 1,
-                key=f"pos_{sec}"
+                key=f"pos_select_{sec}"
             )
 
     st.divider()
@@ -892,8 +930,7 @@ with st.sidebar.expander(t("layout_control"), expanded=False):
 
         with col4:
             is_visible = st.session_state.section_visibility.get(new_order[idx], True)
-            show_section = st.checkbox("👁️ Show in CV", value=is_visible, key=f"show_section_{idx}_{new_order[idx]}")
-            st.session_state.section_visibility[new_order[idx]] = show_section
+            st.write("👁️ Shown" if is_visible else "🚫 Hidden")
 
     st.session_state.section_order = new_order
 
@@ -992,6 +1029,7 @@ def render_experience_items(exp_list):
         link_label = exp.get("link_label") or t("visit_website")
         date_range = exp.get("date_range", "")
         loc = exp.get("location", "")
+        addr = exp.get("address", "")
         summary = TextFormatter.format_html_for_pdf(exp.get("summary", ""))
 
         comp_bold = "font-weight: bold;" if exp.get("bold_company", False) else ""
@@ -1003,7 +1041,8 @@ def render_experience_items(exp_list):
         date_html = f'<span class="entry-meta">{date_range}</span>' if date_range else ""
 
         link_html = f'<div class="entry-meta" style="margin-top: 2px;"><a href="{website}" target="_blank">{link_label} &rarr;</a></div>' if website else ""
-        loc_html = f'<span class="entry-meta" style="margin-left: 8px;">📍 {loc}</span>' if loc else ""
+        loc_str = addr if addr else loc
+        loc_html = f'<span class="entry-meta" style="margin-left: 8px;">📍 {loc_str}</span>' if loc_str else ""
 
         sub_container = ""
         if company_html or loc_html:
@@ -1160,7 +1199,10 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
             sch_bold = "font-weight: bold;" if edu.get("bold_school", False) else ""
             sch_italic = "font-style: italic;" if edu.get("italic_school", False) else ""
             sch_size = f"font-size: {edu.get('school_size', 10)}pt;"
-            school_html = f'<div class="entry-subtitle" style="{sch_bold} {sch_italic} {sch_size}">{edu.get("school", "")}</div>'
+
+            edu_addr = edu.get("address", "")
+            edu_loc_html = f' <span class="entry-meta">📍 {edu_addr}</span>' if edu_addr else ""
+            school_html = f'<div class="entry-subtitle" style="{sch_bold} {sch_italic} {sch_size}">{edu.get("school", "")}{edu_loc_html}</div>'
 
             sec_html += f'''
             <div class="entry">
@@ -1292,6 +1334,23 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
     summary_html = f'<div class="summary">{formatted_summary}</div>' if formatted_summary else ''
     side_col_html = f'<div class="side-col">{sidebar_html}</div>' if (is_two_column and sidebar_html) else ''
 
+    # Build meta line dynamically from header visibility checkboxes
+    meta_parts = []
+    if st.session_state.header_visibility.get("location", True) and location_str:
+        meta_parts.append(location_str)
+    if st.session_state.header_visibility.get("phone", True) and phone_str:
+        meta_parts.append(phone_str)
+    if st.session_state.header_visibility.get("email", True) and email_str:
+        meta_parts.append(email_str)
+
+    meta_line = " | ".join(meta_parts)
+    title_html = f'<div class="title">{title_str}</div>' if (st.session_state.header_visibility.get("title", True) and title_str) else ''
+    meta_html = f'<div class="meta">{meta_line}{meta_extra}</div>' if meta_line else ''
+
+    top_links_html = ""
+    if st.session_state.header_visibility.get("links", True) and cv_data.get("linkedin_url"):
+        top_links_html = f'<div class="meta"><a href="{cv_data["linkedin_url"]}" target="_blank">LinkedIn Profile</a></div>'
+
     html = f"""
     <!DOCTYPE html>
     <html>
@@ -1330,8 +1389,9 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
         <div class="header">
             <div class="header-info">
                 <h1>{full_name}</h1>
-                <div class="title">{title_str}</div>
-                <div class="meta">{location_str} | {phone_str} | {email_str}{meta_extra}</div>
+                {title_html}
+                {meta_html}
+                {top_links_html}
             </div>
             {photo_html}
         </div>
@@ -1409,6 +1469,7 @@ with col_edit_area:
 
         # -------- PROFILES & LINKS --------
         with st.expander(t("profiles_links"), expanded=True):
+            section_visibility_toggle("Profiles & Links")
             col_github, col_linkedin_s, col_portfolio = st.columns(3)
             with col_github:
                 github = st.text_input(t("github"), saved_sec.get("Profiles & Links", {}).get("GitHub", ""), placeholder="https://github.com/...")
@@ -1421,6 +1482,7 @@ with col_edit_area:
 
         # -------- TECHNICAL SKILLS --------
         with st.expander(t("tech_skills")):
+            section_visibility_toggle("Technical Skills")
             saved_tech = saved_sec.get("Technical Skills", [])
             if not isinstance(saved_tech, list): saved_tech = []
 
@@ -1462,6 +1524,7 @@ with col_edit_area:
 
         # -------- SOFT SKILLS --------
         with st.expander(t("soft_skills")):
+            section_visibility_toggle("Soft Skills")
             saved_soft = saved_sec.get("Soft Skills", [])
             if not isinstance(saved_soft, list): saved_soft = []
 
@@ -1500,6 +1563,7 @@ with col_edit_area:
 
         # -------- STRENGTHS --------
         with st.expander(t("strengths")):
+            section_visibility_toggle("Strengths")
             saved_str = saved_sec.get("Strengths", [])
             if not isinstance(saved_str, list): saved_str = []
 
@@ -1538,6 +1602,7 @@ with col_edit_area:
 
         # -------- INTERESTS --------
         with st.expander(t("interests")):
+            section_visibility_toggle("Interests")
             saved_int = saved_sec.get("Interests", [])
             if not isinstance(saved_int, list): saved_int = []
 
@@ -1576,6 +1641,7 @@ with col_edit_area:
 
         # -------- CERTIFICATIONS --------
         with st.expander(t("certifications")):
+            section_visibility_toggle("Certifications")
             saved_cert = saved_sec.get("Certifications", [])
             if not isinstance(saved_cert, list): saved_cert = []
 
@@ -1634,6 +1700,7 @@ with col_edit_area:
 
         # -------- AWARDS --------
         with st.expander(t("awards")):
+            section_visibility_toggle("Awards")
             saved_awd = saved_sec.get("Awards", [])
             if not isinstance(saved_awd, list): saved_awd = []
 
@@ -1676,6 +1743,7 @@ with col_edit_area:
 
         # -------- LANGUAGES --------
         with st.expander(t("languages")):
+            section_visibility_toggle("Languages")
             saved_lang = saved_sec.get("Languages", [])
             if not isinstance(saved_lang, list): saved_lang = []
 
@@ -1713,6 +1781,7 @@ with col_edit_area:
 
         # -------- EXPERIENCE --------
         with st.expander(t("experience")):
+            section_visibility_toggle("Experience")
             saved_exp = saved_sec.get("Experience", [])
             if not isinstance(saved_exp, list): saved_exp = []
 
@@ -1739,11 +1808,14 @@ with col_edit_area:
                 with col_c_size:
                     company_size = st.slider("Company Size (pt)", 8, 16, exp_data.get("company_size", 10), key=f"exp_size_comp_{uid}")
 
-                col_date, col_loc = st.columns(2)
+                col_date, col_loc, col_addr = st.columns(3)
                 with col_date:
                     date_range = st.text_input(t("date_range"), key=f"exp_date_{uid}", value=exp_data.get("date_range", ""))
                 with col_loc:
                     exp_location = st.text_input(t("location"), key=f"exp_location_{uid}", value=exp_data.get("location", ""))
+                with col_addr:
+                    exp_address = st.text_input(t("address"), key=f"exp_address_{uid}", value=exp_data.get("address", ""))
+
                 col_url, col_label = st.columns([2, 1])
                 with col_url:
                     exp_website = st.text_input(t("website_url"), key=f"exp_url_{uid}", value=exp_data.get("website", ""))
@@ -1769,7 +1841,7 @@ with col_edit_area:
 
                 saved_exp[i] = {
                     "_uid": uid, "company": company, "title": job_title, "date_range": date_range,
-                    "location": exp_location, "website": exp_website, "link_label": exp_link_label,
+                    "location": exp_location, "address": exp_address, "website": exp_website, "link_label": exp_link_label,
                     "summary": exp_summary, "bullets": bullets_list,
                     "bold_company": bold_company, "italic_company": italic_company, "company_size": company_size
                 }
@@ -1779,6 +1851,7 @@ with col_edit_area:
 
         # -------- WORK EXPERIENCE --------
         with st.expander(t("work_experience")):
+            section_visibility_toggle("Work Experience")
             saved_w_exp = saved_sec.get("Work Experience", [])
             if not isinstance(saved_w_exp, list): saved_w_exp = []
 
@@ -1805,11 +1878,14 @@ with col_edit_area:
                 with col_c_size:
                     company_size = st.slider("Company Size (pt)", 8, 16, exp_data.get("company_size", 10), key=f"w_exp_size_comp_{uid}")
 
-                col_date, col_loc = st.columns(2)
+                col_date, col_loc, col_addr = st.columns(3)
                 with col_date:
                     date_range = st.text_input(t("date_range"), key=f"w_exp_date_{uid}", value=exp_data.get("date_range", ""))
                 with col_loc:
                     exp_location = st.text_input(t("location"), key=f"w_exp_location_{uid}", value=exp_data.get("location", ""))
+                with col_addr:
+                    exp_address = st.text_input(t("address"), key=f"w_exp_address_{uid}", value=exp_data.get("address", ""))
+
                 col_url, col_label = st.columns([2, 1])
                 with col_url:
                     exp_website = st.text_input(t("website_url"), key=f"w_exp_url_{uid}", value=exp_data.get("website", ""))
@@ -1835,7 +1911,7 @@ with col_edit_area:
 
                 saved_w_exp[i] = {
                     "_uid": uid, "company": company, "title": job_title, "date_range": date_range,
-                    "location": exp_location, "website": exp_website, "link_label": exp_link_label,
+                    "location": exp_location, "address": exp_address, "website": exp_website, "link_label": exp_link_label,
                     "summary": exp_summary, "bullets": bullets_list,
                     "bold_company": bold_company, "italic_company": italic_company, "company_size": company_size
                 }
@@ -1845,6 +1921,7 @@ with col_edit_area:
 
         # -------- EDUCATION --------
         with st.expander(t("education")):
+            section_visibility_toggle("Education")
             saved_edu = saved_sec.get("Education", [])
             if not isinstance(saved_edu, list): saved_edu = []
 
@@ -1871,11 +1948,14 @@ with col_edit_area:
                 with col_s_size:
                     school_size = st.slider("School Size (pt)", 8, 16, edu_data.get("school_size", 10), key=f"edu_size_school_{uid}")
 
-                col_grad_start, col_grad_end = st.columns(2)
+                col_grad_start, col_grad_end, col_edu_addr = st.columns(3)
                 with col_grad_start:
                     graduation = st.text_input(t("graduation_date"), key=f"edu_grad_{uid}", value=edu_data.get("graduation", ""))
                 with col_grad_end:
                     gpa = st.text_input(t("gpa"), key=f"edu_gpa_{uid}", value=edu_data.get("gpa", ""))
+                with col_edu_addr:
+                    edu_address = st.text_input(t("address"), key=f"edu_address_{uid}", value=edu_data.get("address", ""))
+
                 highlights = st.text_area(t("highlights"), key=f"edu_highlights_{uid}", value=edu_data.get("highlights", ""), height=60)
 
                 bc1, bc2, _ = st.columns([1, 1, 4])
@@ -1892,7 +1972,7 @@ with col_edit_area:
 
                 saved_edu[i] = {
                     "_uid": uid, "degree": degree, "school": school, "graduation": graduation,
-                    "gpa": gpa, "highlights": highlights,
+                    "gpa": gpa, "address": edu_address, "highlights": highlights,
                     "bold_school": bold_school, "italic_school": italic_school, "school_size": school_size
                 }
                 st.divider()
@@ -1901,6 +1981,7 @@ with col_edit_area:
 
         # -------- PROJECTS --------
         with st.expander(t("projects")):
+            section_visibility_toggle("Projects")
             saved_proj = saved_sec.get("Projects", [])
             if not isinstance(saved_proj, list): saved_proj = []
 
@@ -1945,6 +2026,7 @@ with col_edit_area:
             sec_type = st.session_state.custom_section_types.get(custom_sec, "Generic Text")
             saved_custom_val = saved_sec.get(custom_sec, [])
             with st.expander(f"📌 {custom_sec} ({sec_type})"):
+                section_visibility_toggle(custom_sec)
                 c_val = st.text_area(f"{custom_sec} Content", value=str(saved_custom_val) if isinstance(saved_custom_val, str) else "", key=f"custom_sec_{custom_sec}", height=100)
                 saved_sec[custom_sec] = c_val
 

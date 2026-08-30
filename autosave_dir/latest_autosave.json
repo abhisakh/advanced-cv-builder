@@ -34,6 +34,7 @@
           "title": "",
           "date_range": "",
           "location": "",
+          "address": "",
           "website": "",
           "link_label": "Visit Website",
           "summary": "",
@@ -46,17 +47,35 @@
       "Education": [
         {
           "_uid": "48f064f6",
-          "degree": "",
+          "degree": "asadfd",
           "school": "",
           "graduation": "",
           "gpa": "",
+          "address": "",
           "highlights": "",
           "bold_school": false,
           "italic_school": true,
           "school_size": 10
         }
       ],
-      "Projects": []
+      "Projects": [],
+      "Work Experience": [
+        {
+          "_uid": "c51da8e1",
+          "company": "",
+          "title": "",
+          "date_range": "",
+          "location": "",
+          "address": "",
+          "website": "",
+          "link_label": "Visit Website",
+          "summary": "",
+          "bullets": [],
+          "bold_company": false,
+          "italic_company": true,
+          "company_size": 10
+        }
+      ]
     },
     "full_name": "",
     "title": "",
@@ -70,17 +89,18 @@
     "custom_sections": [],
     "custom_section_types": {},
     "section_visibility": {
-      "Profiles & Links": true,
+      "Profiles & Links": false,
       "Technical Skills": true,
       "Soft Skills": true,
       "Strengths": true,
       "Interests": true,
-      "Experience": true,
+      "Experience": false,
       "Education": true,
       "Projects": true,
       "Certifications": true,
       "Awards": true,
-      "Languages": true
+      "Languages": true,
+      "Work Experience": true
     },
     "section_placement": {
       "Profiles & Links": "Sidebar",
@@ -93,7 +113,8 @@
       "Awards": "Sidebar",
       "Experience": "Main Column",
       "Education": "Main Column",
-      "Projects": "Main Column"
+      "Projects": "Main Column",
+      "Work Experience": "Main Column"
     },
     "section_order": [
       "Profiles & Links",
@@ -106,23 +127,25 @@
       "Projects",
       "Certifications",
       "Awards",
-      "Languages"
+      "Languages",
+      "Work Experience"
     ]
   },
   "custom_sections": [],
   "custom_section_types": {},
   "section_visibility": {
-    "Profiles & Links": true,
+    "Profiles & Links": false,
     "Technical Skills": true,
     "Soft Skills": true,
     "Strengths": true,
     "Interests": true,
-    "Experience": true,
+    "Experience": false,
     "Education": true,
     "Projects": true,
     "Certifications": true,
     "Awards": true,
-    "Languages": true
+    "Languages": true,
+    "Work Experience": true
   },
   "section_placement": {
     "Profiles & Links": "Sidebar",
@@ -135,7 +158,8 @@
     "Awards": "Sidebar",
     "Experience": "Main Column",
     "Education": "Main Column",
-    "Projects": "Main Column"
+    "Projects": "Main Column",
+    "Work Experience": "Main Column"
   },
   "section_order": [
     "Profiles & Links",
@@ -148,6 +172,7 @@
     "Projects",
     "Certifications",
     "Awards",
-    "Languages"
+    "Languages",
+    "Work Experience"
   ]
 }
