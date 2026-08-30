@@ -12,3 +12,5 @@ env/
 # Streamlit/OS specific
 .streamlit/secrets.toml
 .DS_Store
+
+.unused_code.py
