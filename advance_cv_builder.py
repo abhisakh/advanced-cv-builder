@@ -112,7 +112,8 @@ TRANSLATIONS = {
         "awarder": "Awarder",
         "languages": "🌍 Languages",
         "num_langs": "Number of Languages",
-        "experience": "💼 Work Experience",
+        "experience": "💼 Experience",
+        "work_experience": "💼 Work Experience",
         "num_exp": "Number of Experience Entries",
         "company_name": "Company Name",
         "position_title": "Position / Job Title",
@@ -242,7 +243,8 @@ TRANSLATIONS = {
         "awarder": "Verleiher",
         "languages": "🌍 Sprachen",
         "num_langs": "Anzahl Sprachen",
-        "experience": "💼 Berufserfahrung",
+        "experience": "💼 Erfahrung",
+        "work_experience": "💼 Berufserfahrung",
         "num_exp": "Anzahl Berufserfahrungseinträge",
         "company_name": "Unternehmensname",
         "position_title": "Position / Jobtitel",
@@ -385,6 +387,7 @@ DEFAULT_SECTIONS = [
     "Strengths",
     "Interests",
     "Experience",
+    "Work Experience",
     "Education",
     "Projects",
     "Certifications",
@@ -508,7 +511,7 @@ def get_cv_score(cv_data: Dict) -> tuple[int, List[str]]:
     if sections.get("Technical Skills"): score += 10
     else: suggestions.append("⚠️ Add technical skills")
 
-    if sections.get("Experience"): score += 15
+    if sections.get("Experience") or sections.get("Work Experience"): score += 15
     else: suggestions.append("⚠️ Add work experience")
 
     if sections.get("Education"): score += 10
@@ -562,6 +565,7 @@ Title: {cv_data.get('title', 'N/A')}
 Summary: {cv_data.get('summary', 'N/A')}
 
 Experience: {json.dumps(cv_data.get('sections_data', {}).get('Experience', {}), indent=2)}
+Work Experience: {json.dumps(cv_data.get('sections_data', {}).get('Work Experience', {}), indent=2)}
 
 Skills: {json.dumps(cv_data.get('sections_data', {}).get('Technical Skills', []), indent=2)}
 
@@ -595,6 +599,7 @@ Target Title: {cv_data.get('title', 'N/A')}
 Summary: {cv_data.get('summary', 'N/A')}
 Skills: {json.dumps(cv_data.get('sections_data', {}).get('Technical Skills', []), indent=2)}
 Experience: {json.dumps(cv_data.get('sections_data', {}).get('Experience', {}), indent=2)}
+Work Experience: {json.dumps(cv_data.get('sections_data', {}).get('Work Experience', {}), indent=2)}
 Projects: {json.dumps(cv_data.get('sections_data', {}).get('Projects', {}), indent=2)}
 
 --- INSTRUCTIONS ---
@@ -715,6 +720,7 @@ if "section_placement" not in st.session_state:
         "Certifications": "Sidebar",
         "Awards": "Sidebar",
         "Experience": "Main Column",
+        "Work Experience": "Main Column",
         "Education": "Main Column",
         "Projects": "Main Column"
     })
@@ -1140,6 +1146,9 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
 
     elif sec_name == "Experience" and sections_data.get("Experience"):
         sec_html += f'<div class="section"><h2>{t("experience")}</h2>{render_experience_items(sections_data["Experience"])}</div>'
+
+    elif sec_name == "Work Experience" and sections_data.get("Work Experience"):
+        sec_html += f'<div class="section"><h2>{t("work_experience")}</h2>{render_experience_items(sections_data["Work Experience"])}</div>'
 
     elif sec_name == "Education" and sections_data.get("Education"):
         sec_html += f'<div class="section"><h2>{t("education")}</h2>'
@@ -1767,6 +1776,72 @@ with col_edit_area:
                 st.divider()
             saved_sec["Experience"] = saved_exp
             export_sec["Experience"] = export_items(saved_exp, lambda it: it.get("company") or it.get("title") or it.get("summary") or it.get("bullets"))
+
+        # -------- WORK EXPERIENCE --------
+        with st.expander(t("work_experience")):
+            saved_w_exp = saved_sec.get("Work Experience", [])
+            if not isinstance(saved_w_exp, list): saved_w_exp = []
+
+            num_w_exp = int(st.number_input(t("num_exp"), 0, 10, len(saved_w_exp) if len(saved_w_exp) > 0 else 1, key="num_w_exp_input"))
+            while len(saved_w_exp) < num_w_exp: saved_w_exp.append({})
+            while len(saved_w_exp) > num_w_exp: saved_w_exp.pop()
+            ensure_item_ids(saved_w_exp)
+
+            for i in range(num_w_exp):
+                exp_data = saved_w_exp[i]
+                uid = exp_data["_uid"]
+                st.markdown(f"**Work Experience Entry #{i+1}**")
+                col_company, col_title = st.columns(2)
+                with col_company:
+                    company = st.text_input(t("company_name"), key=f"w_exp_company_{uid}", value=exp_data.get("company", ""))
+                with col_title:
+                    job_title = st.text_input(t("position_title"), key=f"w_exp_title_{uid}", value=exp_data.get("title", ""))
+
+                col_c_bold, col_c_italic, col_c_size = st.columns(3)
+                with col_c_bold:
+                    bold_company = st.checkbox("Bold Company", key=f"w_exp_bold_comp_{uid}", value=exp_data.get("bold_company", False))
+                with col_c_italic:
+                    italic_company = st.checkbox("Italic Company", key=f"w_exp_italic_comp_{uid}", value=exp_data.get("italic_company", True))
+                with col_c_size:
+                    company_size = st.slider("Company Size (pt)", 8, 16, exp_data.get("company_size", 10), key=f"w_exp_size_comp_{uid}")
+
+                col_date, col_loc = st.columns(2)
+                with col_date:
+                    date_range = st.text_input(t("date_range"), key=f"w_exp_date_{uid}", value=exp_data.get("date_range", ""))
+                with col_loc:
+                    exp_location = st.text_input(t("location"), key=f"w_exp_location_{uid}", value=exp_data.get("location", ""))
+                col_url, col_label = st.columns([2, 1])
+                with col_url:
+                    exp_website = st.text_input(t("website_url"), key=f"w_exp_url_{uid}", value=exp_data.get("website", ""))
+                with col_label:
+                    exp_link_label = st.text_input(t("link_label"), key=f"w_exp_link_label_{uid}", value=exp_data.get("link_label", t("visit_website")))
+                exp_summary = st.text_area(t("summary"), key=f"w_exp_summary_{uid}", value=exp_data.get("summary", ""), height=60, placeholder=t("summary_placeholder"))
+                bullets = exp_data.get("bullets", [])
+                if isinstance(bullets, str): bullets = [bullets]
+                bullets_input = st.text_area(t("achievements"), key=f"w_exp_bullets_{uid}", value="\n".join(bullets), height=80)
+                bullets_list = [b.strip() for b in bullets_input.split("\n") if b.strip()]
+
+                bc1, bc2, _ = st.columns([1, 1, 4])
+                with bc1:
+                    if i > 0 and st.button("⬆ Up", key=f"w_exp_up_{uid}"):
+                        saved_w_exp[i], saved_w_exp[i-1] = saved_w_exp[i-1], saved_w_exp[i]
+                        saved_sec["Work Experience"] = saved_w_exp
+                        st.rerun()
+                with bc2:
+                    if i < num_w_exp - 1 and st.button("⬇ Down", key=f"w_exp_down_{uid}"):
+                        saved_w_exp[i], saved_w_exp[i+1] = saved_w_exp[i+1], saved_w_exp[i]
+                        saved_sec["Work Experience"] = saved_w_exp
+                        st.rerun()
+
+                saved_w_exp[i] = {
+                    "_uid": uid, "company": company, "title": job_title, "date_range": date_range,
+                    "location": exp_location, "website": exp_website, "link_label": exp_link_label,
+                    "summary": exp_summary, "bullets": bullets_list,
+                    "bold_company": bold_company, "italic_company": italic_company, "company_size": company_size
+                }
+                st.divider()
+            saved_sec["Work Experience"] = saved_w_exp
+            export_sec["Work Experience"] = export_items(saved_w_exp, lambda it: it.get("company") or it.get("title") or it.get("summary") or it.get("bullets"))
 
         # -------- EDUCATION --------
         with st.expander(t("education")):
