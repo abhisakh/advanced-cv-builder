@@ -337,8 +337,11 @@ class TextFormatter:
 # ============================================================================
 SAVED_PROFILES_DIR = "saved_cvs"
 VERSION_HISTORY_DIR = "cv_versions"
+AUTOSAVE_DIR = "autosave_dir"
 os.makedirs(SAVED_PROFILES_DIR, exist_ok=True)
 os.makedirs(VERSION_HISTORY_DIR, exist_ok=True)
+os.makedirs(AUTOSAVE_DIR, exist_ok=True)
+AUTOSAVE_FILE = os.path.join(AUTOSAVE_DIR, "latest_autosave.json")
 
 CV_TEMPLATES = {
     "Modern": {
@@ -405,6 +408,32 @@ SECTION_TYPES = [
 # UTILITY FUNCTIONS
 # ============================================================================
 
+def auto_save_cv(cv_data: Dict, custom_sections: List, custom_section_types: Dict, section_visibility: Dict, section_placement: Dict, section_order: List):
+    """Periodically checkpoint user edits to local storage."""
+    try:
+        autosave_payload = {
+            "cv_data": cv_data,
+            "custom_sections": custom_sections,
+            "custom_section_types": custom_section_types,
+            "section_visibility": section_visibility,
+            "section_placement": section_placement,
+            "section_order": section_order
+        }
+        with open(AUTOSAVE_FILE, "w") as f:
+            json.dump(autosave_payload, f, indent=2)
+    except Exception:
+        pass
+
+def load_autosaved_cv() -> Dict:
+    """Recover user edits from local autosave storage if available."""
+    if os.path.exists(AUTOSAVE_FILE):
+        try:
+            with open(AUTOSAVE_FILE, "r") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
 def get_image_base64(uploaded_file):
     if uploaded_file is not None:
         bytes_data = uploaded_file.getvalue()
@@ -413,27 +442,12 @@ def get_image_base64(uploaded_file):
     return None
 
 def ensure_item_ids(items: List[Dict]) -> None:
-    """Make sure every dict in a reorderable list has a stable, unique '_uid'.
-
-    Widget keys for these list-backed sections must be bound to this uid
-    (not the list index) so that Up/Down reordering isn't clobbered by
-    Streamlit re-injecting stale widget state tied to the old index.
-    """
     for item in items:
         if "_uid" not in item:
             item["_uid"] = uuid.uuid4().hex[:8]
 
 
 def export_items(items: List[Dict], predicate) -> List[Dict]:
-    """Build a filtered, '_uid'-stripped copy of a section list for scoring,
-    PDF rendering, and JSON export.
-
-    IMPORTANT: this must never be written back into
-    st.session_state.cv_data["sections_data"] (that's the widget backing
-    store). Dropping "empty" rows there loses their '_uid', which orphans
-    the still-open text_input/text_area widgets for that row on the very
-    next keystroke's rerun and makes typed text appear to vanish.
-    """
     result = []
     for item in items:
         if predicate(item):
@@ -672,12 +686,15 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+# Auto-recovery logic on startup
+autosaved_data = load_autosaved_cv()
+
 if "custom_sections" not in st.session_state:
-    st.session_state.custom_sections = []
+    st.session_state.custom_sections = autosaved_data.get("custom_sections", [])
 if "custom_section_types" not in st.session_state:
-    st.session_state.custom_section_types = {}
+    st.session_state.custom_section_types = autosaved_data.get("custom_section_types", {})
 if "cv_data" not in st.session_state:
-    st.session_state.cv_data = {}
+    st.session_state.cv_data = autosaved_data.get("cv_data", {})
 if "selected_template" not in st.session_state:
     st.session_state.selected_template = "Modern"
 if "show_ai_suggestions" not in st.session_state:
@@ -686,9 +703,9 @@ if "show_job_match" not in st.session_state:
     st.session_state.show_job_match = False
 
 if "section_visibility" not in st.session_state:
-    st.session_state.section_visibility = {sec: True for sec in DEFAULT_SECTIONS}
+    st.session_state.section_visibility = autosaved_data.get("section_visibility", {sec: True for sec in DEFAULT_SECTIONS})
 if "section_placement" not in st.session_state:
-    st.session_state.section_placement = {
+    st.session_state.section_placement = autosaved_data.get("section_placement", {
         "Profiles & Links": "Sidebar",
         "Technical Skills": "Sidebar",
         "Soft Skills": "Sidebar",
@@ -700,9 +717,9 @@ if "section_placement" not in st.session_state:
         "Experience": "Main Column",
         "Education": "Main Column",
         "Projects": "Main Column"
-    }
+    })
 if "section_order" not in st.session_state:
-    st.session_state.section_order = list(DEFAULT_SECTIONS)
+    st.session_state.section_order = autosaved_data.get("section_order", list(DEFAULT_SECTIONS))
 
 # ============================================================================
 # SIDEBAR - LANGUAGE SWITCHER & PROFILE MANAGEMENT
@@ -1379,9 +1396,6 @@ with col_edit_area:
             st.session_state.cv_data["sections_data"] = {}
 
         saved_sec = st.session_state.cv_data["sections_data"]
-        # Filtered/exported view built in parallel with saved_sec. Used only
-        # for scoring, PDF rendering, AI prompts, and JSON export — never
-        # written back to session_state (see export_items docstring).
         export_sec: Dict[str, Any] = {}
 
         # -------- PROFILES & LINKS --------
@@ -1868,14 +1882,12 @@ with col_edit_area:
             "section_order": st.session_state.section_order
         })
         st.session_state.cv_data = cv_data
+
+        # Periodically checkpoint user edits via auto-save
+        auto_save_cv(cv_data, st.session_state.custom_sections, st.session_state.custom_section_types, st.session_state.section_visibility, st.session_state.section_placement, st.session_state.section_order)
+
         safe_filename = full_name.replace(' ', '_') if full_name else "My"
 
-        # Filtered view for scoring, AI prompts, PDF rendering, and JSON export.
-        # cv_data itself (above) keeps every padded row, blanks included, so
-        # that widget keys stay bound to a stable "_uid" across reruns. This
-        # copy drops the empty rows instead of persisting that back into
-        # session_state, which is what previously orphaned an in-progress
-        # field's key and made freshly typed text vanish after Enter.
         export_cv_data = dict(cv_data)
         export_cv_data["sections_data"] = {**saved_sec, **export_sec}
 
@@ -1929,28 +1941,39 @@ with col_edit_area:
             with st.expander(t("tailored_recommendations"), expanded=True):
                 st.markdown(st.session_state.job_tailored_analysis)
 
+        # ------------------------------------------------------------------------
+        # EXPORT OPTIONS & LIVE PREVIEW SYNC
+        # ------------------------------------------------------------------------
         st.markdown("---")
         st.subheader(t("export_options"))
 
         selected_template_key = cast(str, st.session_state.selected_template)
-        rendered_html = generate_cv_html(
-            export_cv_data, CV_TEMPLATES[selected_template_key], photo_settings,
-            sidebar_width_pct=sidebar_width_pct if layout_mode == "Two Columns" else 32,
-            sidebar_position=sidebar_position if layout_mode == "Two Columns" else "Right",
-            layout_mode=layout_mode, primary_color=primary_color, accent_color=accent_color,
-            font_family=font_family, heading_size=heading_size, body_size=body_size,
-            line_height=line_height, margin_size=margin_size
-        )
-        pdf_bytes = HTML(string=rendered_html).write_pdf() or b""
+
+        with st.spinner("Generating preview..."):
+            export_cv_data = dict(cv_data)
+            export_cv_data["sections_data"] = {**saved_sec, **export_sec}
+
+            rendered_html = generate_cv_html(
+                export_cv_data, CV_TEMPLATES[selected_template_key], photo_settings,
+                sidebar_width_pct=sidebar_width_pct if layout_mode == "Two Columns" else 32,
+                sidebar_position=sidebar_position if layout_mode == "Two Columns" else "Right",
+                layout_mode=layout_mode, primary_color=primary_color, accent_color=accent_color,
+                font_family=font_family, heading_size=heading_size, body_size=body_size,
+                line_height=line_height, margin_size=margin_size
+            )
+            pdf_bytes = HTML(string=rendered_html).write_pdf() or b""
+
+        download_choice = st.radio("Select data type to download:", ["Preview Data", "Saved Data"], horizontal=True)
+        target_json_data = export_cv_data if download_choice == "Preview Data" else st.session_state.get("saved_version_data", export_cv_data)
 
         sub_col1, sub_col2 = st.columns(2)
         with sub_col1:
             st.download_button(t("btn_download_pdf"), data=pdf_bytes, file_name=f"{safe_filename}_CV.pdf", mime="application/pdf", use_container_width=True)
         with sub_col2:
-            st.download_button(t("btn_download_json"), data=json.dumps(export_cv_data, indent=2), file_name=f"{safe_filename}_CV_data.json", mime="application/json", use_container_width=True)
+            st.download_button(t("btn_download_json"), data=json.dumps(target_json_data, indent=2), file_name=f"{safe_filename}_CV_data.json", mime="application/json", use_container_width=True)
 
         with st.popover(t("save_version"), use_container_width=True):
-            version_input = st.text_input(t("version_tag"), value=f"{safe_filename}_{st.session_state.get('selected_template', 'default')}")
+            version_input = st.text_input(t("version_tag"), value=f"{safe_filename}_{selected_template_key}")
             if st.button(t("confirm_save"), use_container_width=True):
                 save_version(export_cv_data, version_input)
                 st.success("✅ Saved!")

@@ -1,0 +1,153 @@
+{
+  "cv_data": {
+    "sections_data": {
+      "Profiles & Links": {
+        "GitHub": "",
+        "LinkedIn": "",
+        "Portfolio": ""
+      },
+      "Technical Skills": [
+        {
+          "_uid": "45dfa638",
+          "name": "",
+          "description": "",
+          "keywords": ""
+        }
+      ],
+      "Soft Skills": [
+        {
+          "_uid": "d74159bd",
+          "name": "",
+          "description": "",
+          "keywords": ""
+        }
+      ],
+      "Strengths": [],
+      "Interests": [],
+      "Certifications": [],
+      "Awards": [],
+      "Languages": [],
+      "Experience": [
+        {
+          "_uid": "9272f95c",
+          "company": "",
+          "title": "",
+          "date_range": "",
+          "location": "",
+          "website": "",
+          "link_label": "Visit Website",
+          "summary": "",
+          "bullets": [],
+          "bold_company": false,
+          "italic_company": true,
+          "company_size": 10
+        }
+      ],
+      "Education": [
+        {
+          "_uid": "48f064f6",
+          "degree": "",
+          "school": "",
+          "graduation": "",
+          "gpa": "",
+          "highlights": "",
+          "bold_school": false,
+          "italic_school": true,
+          "school_size": 10
+        }
+      ],
+      "Projects": []
+    },
+    "full_name": "",
+    "title": "",
+    "email": "",
+    "phone": "",
+    "location": "",
+    "residency": "",
+    "relocation": "",
+    "linkedin_url": "",
+    "summary": "",
+    "custom_sections": [],
+    "custom_section_types": {},
+    "section_visibility": {
+      "Profiles & Links": true,
+      "Technical Skills": true,
+      "Soft Skills": true,
+      "Strengths": true,
+      "Interests": true,
+      "Experience": true,
+      "Education": true,
+      "Projects": true,
+      "Certifications": true,
+      "Awards": true,
+      "Languages": true
+    },
+    "section_placement": {
+      "Profiles & Links": "Sidebar",
+      "Technical Skills": "Sidebar",
+      "Soft Skills": "Sidebar",
+      "Strengths": "Sidebar",
+      "Interests": "Sidebar",
+      "Languages": "Sidebar",
+      "Certifications": "Sidebar",
+      "Awards": "Sidebar",
+      "Experience": "Main Column",
+      "Education": "Main Column",
+      "Projects": "Main Column"
+    },
+    "section_order": [
+      "Profiles & Links",
+      "Technical Skills",
+      "Soft Skills",
+      "Strengths",
+      "Interests",
+      "Experience",
+      "Education",
+      "Projects",
+      "Certifications",
+      "Awards",
+      "Languages"
+    ]
+  },
+  "custom_sections": [],
+  "custom_section_types": {},
+  "section_visibility": {
+    "Profiles & Links": true,
+    "Technical Skills": true,
+    "Soft Skills": true,
+    "Strengths": true,
+    "Interests": true,
+    "Experience": true,
+    "Education": true,
+    "Projects": true,
+    "Certifications": true,
+    "Awards": true,
+    "Languages": true
+  },
+  "section_placement": {
+    "Profiles & Links": "Sidebar",
+    "Technical Skills": "Sidebar",
+    "Soft Skills": "Sidebar",
+    "Strengths": "Sidebar",
+    "Interests": "Sidebar",
+    "Languages": "Sidebar",
+    "Certifications": "Sidebar",
+    "Awards": "Sidebar",
+    "Experience": "Main Column",
+    "Education": "Main Column",
+    "Projects": "Main Column"
+  },
+  "section_order": [
+    "Profiles & Links",
+    "Technical Skills",
+    "Soft Skills",
+    "Strengths",
+    "Interests",
+    "Experience",
+    "Education",
+    "Projects",
+    "Certifications",
+    "Awards",
+    "Languages"
+  ]
+}
