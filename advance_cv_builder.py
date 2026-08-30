@@ -1017,8 +1017,12 @@ with st.sidebar.expander(t("profile_photo")):
         pd["border_radius"] = "50%" if pd["shape"] == "Circular" else "0px"
 
         st.subheader(t("photo_offsets"))
+        st.caption("📍 'Position' places the photo (header left/right, or the sidebar); the offsets below pan/crop the image inside that frame. Both together control where and how the photo looks.")
         pd["offset_x"] = st.slider(t("horizontal_offset"), 0, 100, pd.get("offset_x", 50), key="photo_offset_x_slider")
         pd["offset_y"] = st.slider(t("vertical_offset"), 0, 100, pd.get("offset_y", 50), key="photo_offset_y_slider")
+
+        if pd["position"] == "Left Sidebar":
+            st.caption("ℹ️ 'Left Sidebar' only applies in Two Columns layout mode — with Single Column, it falls back to Header Left.")
 
         photo_settings.update({
             "position": pd["position"], "shape": pd["shape"], "width": pd["width"],
@@ -1378,7 +1382,23 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
     photo_html = f'<img src="{photo_b64}" class="profile-photo" />' if photo_b64 else ''
     meta_extra = f'<br/>{residency_str} | {relocation_str}' if (residency_str or relocation_str) else ''
     summary_html = f'<div class="summary">{formatted_summary}</div>' if formatted_summary else ''
-    side_col_html = f'<div class="side-col">{sidebar_html}</div>' if (is_two_column and sidebar_html) else ''
+
+    # Where the photo actually appears is driven by photo_settings["position"],
+    # combined with the frame offsets (which crop/pan the image inside its
+    # frame) — together these determine the photo's overall placement.
+    photo_position = photo_settings.get("position", "Header Right")
+    photo_in_sidebar = ""
+    header_class = "header"
+    if photo_html and photo_position == "Left Sidebar" and is_two_column and sidebar_html:
+        # Sidebar exists: dock the photo at the top of it.
+        photo_in_sidebar = f'<div class="sidebar-photo">{photo_html}</div>'
+        photo_html = ""
+    elif photo_html and photo_position in ("Left Sidebar", "Header Left"):
+        # No sidebar available (or "Header Left" explicitly chosen): put the
+        # photo on the left side of the header instead.
+        header_class = "header header-photo-left"
+
+    side_col_html = f'<div class="side-col">{photo_in_sidebar}{sidebar_html}</div>' if (is_two_column and (sidebar_html or photo_in_sidebar)) else ''
 
     # Build meta line dynamically from header visibility checkboxes
     meta_parts = []
@@ -1408,11 +1428,13 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
         @page {{ size: A4 portrait; margin: {margin_size}mm; }}
         body {{ font-family: '{font_family}', sans-serif; color: #333333; line-height: {line_height}; font-size: {body_size}pt; background: white; }}
         .header {{ border-bottom: 3px solid {primary_color}; padding-bottom: 15px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; }}
+        .header-photo-left {{ flex-direction: row-reverse; }}
         .header-info {{ flex: 1; }}
         .header-info h1 {{ font-size: {heading_size + 6}pt; color: {primary_color}; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }}
         .header-info .title {{ font-size: {body_size + 2}pt; color: {accent_color}; font-weight: bold; margin-bottom: 5px; }}
         .header-info .meta {{ font-size: {body_size - 1}pt; color: #666; line-height: 1.5; }}
         .profile-photo {{ width: {photo_settings['width']}px; height: {photo_settings['height']}px; object-fit: cover; object-position: {photo_settings['offset_x']}% {photo_settings['offset_y']}%; border: 2px solid {primary_color}; border-radius: {photo_settings['border_radius']}; flex-shrink: 0; }}
+        .sidebar-photo {{ display: flex; justify-content: center; margin-bottom: 14px; }}
         .summary {{ font-size: {body_size}pt; margin-bottom: 20px; line-height: 1.6; color: #333; }}
         .layout-container {{ display: flex; flex-direction: {flex_direction}; gap: 20px; width: 100%; }}
         .main-col {{ width: {main_width_pct}%; }}
@@ -1432,7 +1454,7 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
     </style>
     </head>
     <body>
-        <div class="header">
+        <div class="{header_class}">
             <div class="header-info">
                 <h1>{full_name}</h1>
                 {title_html}
