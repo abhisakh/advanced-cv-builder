@@ -1622,11 +1622,14 @@ with col_edit_area:
         st.markdown("---")
         st.subheader("🎯 Target Job Matching & Customization")
 
-        job_desc_input = st.text_area(
-            "Paste Job Description / Requirements",
-            height=140,
-            placeholder="Paste the full job posting here to analyze ATS keyword match and get tailored bullet recommendations..."
-        )
+        # Added a unique key so Streamlit remembers what you type
+        with st.container():
+            job_desc_input = st.text_area(
+                "Paste Job Description / Requirements",
+                height=140,
+                placeholder="Paste the full job posting here to analyze ATS keyword match and get tailored bullet recommendations...",
+                key="unique_job_desc_input_box"
+            )
 
         if st.button("🎯 Analyze & Match Job Description", use_container_width=True):
             if not job_desc_input.strip():
@@ -1636,7 +1639,7 @@ with col_edit_area:
                     st.session_state.job_tailored_analysis = get_job_tailored_suggestions(cv_data, job_desc_input)
                     st.session_state.show_job_match = True
 
-        if st.session_state.show_job_match and "job_tailored_analysis" in st.session_state:
+        if st.session_state.get("show_job_match", False) and "job_tailored_analysis" in st.session_state:
             with st.expander("📌 Tailored Job Recommendations", expanded=True):
                 st.markdown(st.session_state.job_tailored_analysis)
 
@@ -1686,16 +1689,16 @@ with col_edit_area:
                 save_version(cv_data, version_input)
                 st.success(f"✅ Saved!")
         # ---> PLACE LEFT COLUMN SPACER HERE <---
-        for _ in range(5):
-            st.markdown("<br>", unsafe_allow_html=True)
+        # for _ in range(5):
+        #     st.markdown("<br>", unsafe_allow_html=True)
 # 2. Right Column Scrollable Viewport
 with col_prev:
     with st.container(height=800, border=False):
         st.subheader("👀 Live Preview")
         render_pdf_preview(pdf_bytes)
     # ---> PLACE RIGHT COLUMN SPACER HERE <---
-    for _ in range(5):
-        st.markdown("<br>", unsafe_allow_html=True)
+    # for _ in range(5):
+    #     st.markdown("<br>", unsafe_allow_html=True)
 # ============================================================================
 # FOOTER
 # ============================================================================
