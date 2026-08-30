@@ -31,6 +31,11 @@ TRANSLATIONS = {
         "btn_save": "💾 Save",
         "restore_version": "Restore Saved Version",
         "btn_restore": "⏪ Restore Selected Version",
+        "import_profile_json": "📤 Import Profile from JSON File",
+        "btn_import_json": "⬆️ Import",
+        "import_help": "Downloaded a Profile JSON on another computer? Upload it here to bring your data (including your photo) into this session.",
+        "import_success": "✅ Profile imported! It's loaded into this session — click 💾 Save to also store it on this server.",
+        "import_error": "❌ Couldn't read that file — please upload a JSON file exported from this app.",
         "template_styling": "🎨 Template & Styling",
         "select_template": "Select Template",
         "customize_colors": "Customize Colors",
@@ -163,6 +168,11 @@ TRANSLATIONS = {
         "btn_save": "💾 Speichern",
         "restore_version": "Gespeicherte Version wiederherstellen",
         "btn_restore": "⏪ Ausgewählte Version wiederherstellen",
+        "import_profile_json": "📤 Profil aus JSON-Datei importieren",
+        "btn_import_json": "⬆️ Importieren",
+        "import_help": "Haben Sie ein Profil-JSON auf einem anderen Computer heruntergeladen? Laden Sie es hier hoch, um Ihre Daten (einschließlich Foto) in diese Sitzung zu übernehmen.",
+        "import_success": "✅ Profil importiert! Es ist in dieser Sitzung geladen — klicken Sie auf 💾 Speichern, um es auch auf diesem Server zu speichern.",
+        "import_error": "❌ Datei konnte nicht gelesen werden — bitte eine aus dieser App exportierte JSON-Datei hochladen.",
         "template_styling": "🎨 Design & Vorlagen",
         "select_template": "Vorlage auswählen",
         "customize_colors": "Farben anpassen",
@@ -825,6 +835,28 @@ with st.sidebar.expander(t("sidebar_profile"), expanded=True):
                 with open(file_path, "w") as f:
                     json.dump(st.session_state.cv_data, f, indent=2)
                 st.success(f"✅ Saved '{new_profile_name}'")
+
+    st.divider()
+    st.caption(t("import_profile_json"))
+    st.caption(t("import_help"))
+    uploaded_profile_json = st.file_uploader(
+        t("import_profile_json"), type=["json"], key="profile_import_uploader", label_visibility="collapsed"
+    )
+    if st.button(t("btn_import_json"), use_container_width=True):
+        if uploaded_profile_json is not None:
+            try:
+                imported_data = json.loads(uploaded_profile_json.getvalue().decode("utf-8"))
+                st.session_state.cv_data = imported_data
+                st.session_state.custom_sections = imported_data.get("custom_sections", [])
+                st.session_state.custom_section_types = imported_data.get("custom_section_types", {})
+                st.session_state.section_visibility = imported_data.get("section_visibility", st.session_state.section_visibility)
+                st.session_state.section_placement = imported_data.get("section_placement", st.session_state.section_placement)
+                st.session_state.section_order = imported_data.get("section_order", st.session_state.section_order)
+                st.session_state.photo_data = imported_data.get("photo_data", st.session_state.photo_data)
+                st.success(t("import_success"))
+                st.rerun()
+            except Exception:
+                st.error(t("import_error"))
 
     if selected_profile != "Default":
         st.divider()

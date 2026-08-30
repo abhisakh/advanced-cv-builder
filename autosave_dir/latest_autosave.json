@@ -141,7 +141,17 @@
       "Awards",
       "Languages",
       "Work Experience"
-    ]
+    ],
+    "photo_data": {
+      "show_photo": false,
+      "photo_b64": null,
+      "position": "Header Right",
+      "shape": "Circular",
+      "width": 100,
+      "height": 100,
+      "offset_x": 50,
+      "offset_y": 50
+    }
   },
   "custom_sections": [],
   "custom_section_types": {},
@@ -186,5 +196,15 @@
     "Awards",
     "Languages",
     "Work Experience"
-  ]
+  ],
+  "photo_data": {
+    "show_photo": false,
+    "photo_b64": null,
+    "position": "Header Right",
+    "shape": "Circular",
+    "width": 100,
+    "height": 100,
+    "offset_x": 50,
+    "offset_y": 50
+  }
 }
