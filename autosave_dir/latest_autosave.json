@@ -56,6 +56,18 @@
           "bold_school": false,
           "italic_school": true,
           "school_size": 10
+        },
+        {
+          "_uid": "40963063",
+          "degree": "",
+          "school": "",
+          "graduation": "",
+          "gpa": "",
+          "address": "",
+          "highlights": "",
+          "bold_school": false,
+          "italic_school": true,
+          "school_size": 10
         }
       ],
       "Projects": [],

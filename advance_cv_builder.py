@@ -435,7 +435,7 @@ def section_visibility_toggle(sec_name: str):
     return new_val
 
 
-def auto_save_cv(cv_data: Dict, custom_sections: List, custom_section_types: Dict, section_visibility: Dict, section_placement: Dict, section_order: List):
+def auto_save_cv(cv_data: Dict, custom_sections: List, custom_section_types: Dict, section_visibility: Dict, section_placement: Dict, section_order: List, photo_data: Dict = None):
     """Periodically checkpoint user edits to local storage."""
     try:
         autosave_payload = {
@@ -444,7 +444,8 @@ def auto_save_cv(cv_data: Dict, custom_sections: List, custom_section_types: Dic
             "custom_section_types": custom_section_types,
             "section_visibility": section_visibility,
             "section_placement": section_placement,
-            "section_order": section_order
+            "section_order": section_order,
+            "photo_data": photo_data or {}
         }
         with open(AUTOSAVE_FILE, "w") as f:
             json.dump(autosave_payload, f, indent=2)
@@ -760,6 +761,18 @@ if "section_placement" not in st.session_state:
 if "section_order" not in st.session_state:
     st.session_state.section_order = autosaved_data.get("section_order", list(DEFAULT_SECTIONS))
 
+if "photo_data" not in st.session_state:
+    st.session_state.photo_data = autosaved_data.get("photo_data", st.session_state.cv_data.get("photo_data", {
+        "show_photo": False,
+        "photo_b64": None,
+        "position": "Header Right",
+        "shape": "Circular",
+        "width": 100,
+        "height": 100,
+        "offset_x": 50,
+        "offset_y": 50,
+    }))
+
 # ============================================================================
 # SIDEBAR - LANGUAGE SWITCHER & PROFILE MANAGEMENT
 # ============================================================================
@@ -794,6 +807,7 @@ with st.sidebar.expander(t("sidebar_profile"), expanded=True):
                     st.session_state.section_visibility = loaded_data.get("section_visibility", st.session_state.section_visibility)
                     st.session_state.section_placement = loaded_data.get("section_placement", st.session_state.section_placement)
                     st.session_state.section_order = loaded_data.get("section_order", st.session_state.section_order)
+                    st.session_state.photo_data = loaded_data.get("photo_data", st.session_state.photo_data)
                 st.success(f"✅ Loaded '{selected_profile}'")
                 st.rerun()
 
@@ -806,6 +820,7 @@ with st.sidebar.expander(t("sidebar_profile"), expanded=True):
                 st.session_state.cv_data["section_visibility"] = st.session_state.section_visibility
                 st.session_state.cv_data["section_placement"] = st.session_state.section_placement
                 st.session_state.cv_data["section_order"] = st.session_state.section_order
+                st.session_state.cv_data["photo_data"] = st.session_state.photo_data
                 file_path = os.path.join(SAVED_PROFILES_DIR, f"{new_profile_name}.json")
                 with open(file_path, "w") as f:
                     json.dump(st.session_state.cv_data, f, indent=2)
@@ -825,6 +840,7 @@ with st.sidebar.expander(t("sidebar_profile"), expanded=True):
                 st.session_state.section_visibility = restored.get("section_visibility", st.session_state.section_visibility)
                 st.session_state.section_placement = restored.get("section_placement", st.session_state.section_placement)
                 st.session_state.section_order = restored.get("section_order", st.session_state.section_order)
+                st.session_state.photo_data = restored.get("photo_data", st.session_state.photo_data)
                 st.success("✅ Restored version!")
                 st.rerun()
 
@@ -950,37 +966,67 @@ photo_settings = {
 }
 
 with st.sidebar.expander(t("profile_photo")):
-    show_photo = st.checkbox(t("include_photo"), value=False)
+    pd = st.session_state.photo_data
+
+    show_photo = st.checkbox(t("include_photo"), value=pd.get("show_photo", False), key="photo_show_toggle")
+    pd["show_photo"] = show_photo
 
     if show_photo:
-        uploaded_photo = st.file_uploader(t("upload_photo"), type=["jpg", "jpeg", "png"])
+        uploaded_photo = st.file_uploader(t("upload_photo"), type=["jpg", "jpeg", "png"], key="photo_uploader")
+
+        # A newly uploaded file always wins; otherwise fall back to whatever
+        # base64 photo was previously saved (e.g. loaded from a profile),
+        # so the photo isn't lost just because file_uploader is empty again.
+        if uploaded_photo:
+            pd["photo_b64"] = get_image_base64(uploaded_photo)
+        photo_b64 = pd.get("photo_b64")
+
+        if photo_b64:
+            st.image(photo_b64, caption="Current photo", width=100)
 
         col_pos, col_shape = st.columns(2)
+        position_options = ["Left Sidebar", "Header Right", "Header Left"]
+        shape_options_display = [t("circular"), t("square"), t("rectangular")]
+        shape_value_map = {t("circular"): "Circular", t("square"): "Square", t("rectangular"): "Rectangular"}
+        shape_display_map = {v: k for k, v in shape_value_map.items()}
+
         with col_pos:
-            photo_settings["position"] = st.selectbox(t("position"), ["Left Sidebar", "Header Right", "Header Left"])
+            pd["position"] = st.selectbox(
+                t("position"), position_options,
+                index=position_options.index(pd.get("position", "Header Right")) if pd.get("position", "Header Right") in position_options else 0,
+                key="photo_position_select"
+            )
         with col_shape:
-            photo_settings["shape"] = st.selectbox(t("shape"), [t("circular"), t("square"), t("rectangular")])
-            if photo_settings["shape"] == t("circular"): photo_settings["shape"] = "Circular"
-            elif photo_settings["shape"] == t("square"): photo_settings["shape"] = "Square"
-            else: photo_settings["shape"] = "Rectangular"
+            current_shape_display = shape_display_map.get(pd.get("shape", "Circular"), t("circular"))
+            shape_choice = st.selectbox(
+                t("shape"), shape_options_display,
+                index=shape_options_display.index(current_shape_display),
+                key="photo_shape_select"
+            )
+            pd["shape"] = shape_value_map[shape_choice]
 
         col_w, col_h = st.columns(2)
         with col_w:
-            photo_settings["width"] = st.slider(t("width_px"), 80, 180, 100)
+            pd["width"] = st.slider(t("width_px"), 80, 180, pd.get("width", 100), key="photo_width_slider")
         with col_h:
-            if photo_settings["shape"] == "Rectangular":
-                photo_settings["height"] = st.slider(t("height_px"), 80, 220, 130)
+            if pd["shape"] == "Rectangular":
+                pd["height"] = st.slider(t("height_px"), 80, 220, pd.get("height", 130), key="photo_height_slider")
             else:
-                photo_settings["height"] = photo_settings["width"]
+                pd["height"] = pd["width"]
 
-        photo_settings["border_radius"] = "50%" if photo_settings["shape"] == "Circular" else "0px"
+        pd["border_radius"] = "50%" if pd["shape"] == "Circular" else "0px"
 
         st.subheader(t("photo_offsets"))
-        photo_settings["offset_x"] = st.slider(t("horizontal_offset"), 0, 100, 50)
-        photo_settings["offset_y"] = st.slider(t("vertical_offset"), 0, 100, 50)
+        pd["offset_x"] = st.slider(t("horizontal_offset"), 0, 100, pd.get("offset_x", 50), key="photo_offset_x_slider")
+        pd["offset_y"] = st.slider(t("vertical_offset"), 0, 100, pd.get("offset_y", 50), key="photo_offset_y_slider")
 
-        if uploaded_photo:
-            photo_b64 = get_image_base64(uploaded_photo)
+        photo_settings.update({
+            "position": pd["position"], "shape": pd["shape"], "width": pd["width"],
+            "height": pd["height"], "border_radius": pd["border_radius"],
+            "offset_x": pd["offset_x"], "offset_y": pd["offset_y"],
+        })
+
+    st.session_state.photo_data = pd
 
 # ============================================================================
 # SIDEBAR - CUSTOM SECTIONS WITH DROPDOWN TYPE SELECTION
@@ -2036,12 +2082,12 @@ with col_edit_area:
             "linkedin_url": linkedin_url, "summary": summary, "sections_data": saved_sec,
             "custom_sections": st.session_state.custom_sections, "custom_section_types": st.session_state.custom_section_types,
             "section_visibility": st.session_state.section_visibility, "section_placement": st.session_state.section_placement,
-            "section_order": st.session_state.section_order
+            "section_order": st.session_state.section_order, "photo_data": st.session_state.photo_data
         })
         st.session_state.cv_data = cv_data
 
         # Periodically checkpoint user edits via auto-save
-        auto_save_cv(cv_data, st.session_state.custom_sections, st.session_state.custom_section_types, st.session_state.section_visibility, st.session_state.section_placement, st.session_state.section_order)
+        auto_save_cv(cv_data, st.session_state.custom_sections, st.session_state.custom_section_types, st.session_state.section_visibility, st.session_state.section_placement, st.session_state.section_order, st.session_state.photo_data)
 
         safe_filename = full_name.replace(' ', '_') if full_name else "My"
 
