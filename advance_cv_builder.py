@@ -1,5 +1,4 @@
-"""
-Advanced CV Builder with AI Enhancement, Job Matcher, Built-in Text Formatter,
+"""Advanced CV Builder with AI Enhancement, Job Matcher, Built-in Text Formatter,
 Multiple Templates & Dynamic Custom Section Types (EN / DE Support)
 """
 
@@ -97,6 +96,10 @@ TRANSLATIONS = {
         "keywords": "Keywords (comma separated or lines)",
         "soft_skills": "🤝 Soft Skills",
         "num_soft": "Number of Soft Skill Categories/Items",
+        "strengths": "💪 Strengths",
+        "num_strengths": "Number of Strength Categories/Items",
+        "interests": "🎯 Interests",
+        "num_interests": "Number of Interest Categories/Items",
         "certifications": "🏆 Certifications",
         "num_certs": "Number of Certifications",
         "issuer": "Issuer",
@@ -223,6 +226,10 @@ TRANSLATIONS = {
         "keywords": "Schlüsselwörter (kommagetrennt oder zeilenweise)",
         "soft_skills": "🤝 Soziale Kompetenzen (Soft Skills)",
         "num_soft": "Anzahl Soft-Skill-Kategorien/Einträge",
+        "strengths": "💪 Stärken",
+        "num_strengths": "Anzahl Stärken-Kategorien/Einträge",
+        "interests": "🎯 Interessen",
+        "num_interests": "Anzahl Interessen-Kategorien/Einträge",
         "certifications": "🏆 Zertifizierungen",
         "num_certs": "Anzahl Zertifizierungen",
         "issuer": "Aussteller",
@@ -371,6 +378,8 @@ DEFAULT_SECTIONS = [
     "Profiles & Links",
     "Technical Skills",
     "Soft Skills",
+    "Strengths",
+    "Interests",
     "Experience",
     "Education",
     "Projects",
@@ -386,6 +395,8 @@ SECTION_TYPES = [
     "Projects",
     "Technical Skills",
     "Soft Skills",
+    "Strengths",
+    "Interests",
     "Generic Text"
 ]
 
@@ -651,6 +662,8 @@ if "section_placement" not in st.session_state:
         "Profiles & Links": "Sidebar",
         "Technical Skills": "Sidebar",
         "Soft Skills": "Sidebar",
+        "Strengths": "Sidebar",
+        "Interests": "Sidebar",
         "Languages": "Sidebar",
         "Certifications": "Sidebar",
         "Awards": "Sidebar",
@@ -1048,6 +1061,36 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
             '''
         sec_html += '</div>'
 
+    elif sec_name == "Strengths" and sections_data.get("Strengths"):
+        sec_html += f'<div class="section"><h2>{t("strengths")}</h2>'
+        for item in sections_data["Strengths"]:
+            name = TextFormatter.format_html_for_pdf(item.get("name", ""))
+            desc = TextFormatter.format_html_for_pdf(item.get("description", ""))
+            kw = TextFormatter.format_html_for_pdf(item.get("keywords", ""))
+            sec_html += f'''
+            <div class="entry">
+                <div class="entry-title">{name}</div>
+                <div class="entry-subtitle">{desc}</div>
+                <p style="font-size: 9pt; color: #555;">{kw}</p>
+            </div>
+            '''
+        sec_html += '</div>'
+
+    elif sec_name == "Interests" and sections_data.get("Interests"):
+        sec_html += f'<div class="section"><h2>{t("interests")}</h2>'
+        for item in sections_data["Interests"]:
+            name = TextFormatter.format_html_for_pdf(item.get("name", ""))
+            desc = TextFormatter.format_html_for_pdf(item.get("description", ""))
+            kw = TextFormatter.format_html_for_pdf(item.get("keywords", ""))
+            sec_html += f'''
+            <div class="entry">
+                <div class="entry-title">{name}</div>
+                <div class="entry-subtitle">{desc}</div>
+                <p style="font-size: 9pt; color: #555;">{kw}</p>
+            </div>
+            '''
+        sec_html += '</div>'
+
     elif sec_name == "Experience" and sections_data.get("Experience"):
         sec_html += f'<div class="section"><h2>{t("experience")}</h2>{render_experience_items(sections_data["Experience"])}</div>'
 
@@ -1350,9 +1393,43 @@ with col_edit_area:
                 st.divider()
             sections_data["Soft Skills"] = soft_items
 
+        # -------- STRENGTHS --------
+        with st.expander(t("strengths")):
+            num_strengths = int(st.number_input(t("num_strengths"), 0, 10, len(saved_sec.get("Strengths", [])) if isinstance(saved_sec.get("Strengths"), list) else 0))
+            strength_items = []
+            for i in range(num_strengths):
+                item_data = saved_sec.get("Strengths", [])[i] if isinstance(saved_sec.get("Strengths", []), list) and i < len(saved_sec.get("Strengths", [])) else {}
+                c_name, c_desc = st.columns(2)
+                with c_name:
+                    str_name = st.text_input(t("name"), key=f"strength_name_{i}", value=item_data.get("name", ""))
+                with c_desc:
+                    str_desc = st.text_input(t("description"), key=f"strength_desc_{i}", value=item_data.get("description", ""))
+                str_keywords = st.text_area(t("keywords"), key=f"strength_keywords_{i}", value=item_data.get("keywords", ""), height=60)
+                if str_name or str_keywords:
+                    strength_items.append({"name": str_name, "description": str_desc, "keywords": str_keywords})
+                st.divider()
+            sections_data["Strengths"] = strength_items
+
+        # -------- INTERESTS --------
+        with st.expander(t("interests")):
+            num_interests = int(st.number_input(t("num_interests"), 0, 10, len(saved_sec.get("Interests", [])) if isinstance(saved_sec.get("Interests", list), list) else 0))
+            interest_items = []
+            for i in range(num_interests):
+                item_data = saved_sec.get("Interests", [])[i] if isinstance(saved_sec.get("Interests", []), list) and i < len(saved_sec.get("Interests", [])) else {}
+                c_name, c_desc = st.columns(2)
+                with c_name:
+                    int_name = st.text_input(t("name"), key=f"interest_name_{i}", value=item_data.get("name", ""))
+                with c_desc:
+                    int_desc = st.text_input(t("description"), key=f"interest_desc_{i}", value=item_data.get("description", ""))
+                int_keywords = st.text_area(t("keywords"), key=f"interest_keywords_{i}", value=item_data.get("keywords", ""), height=60)
+                if int_name or int_keywords:
+                    interest_items.append({"name": int_name, "description": int_desc, "keywords": int_keywords})
+                st.divider()
+            sections_data["Interests"] = interest_items
+
         # -------- CERTIFICATIONS --------
         with st.expander(t("certifications")):
-            num_certs = int(st.number_input(t("num_certs"), 0, 10, len(saved_sec.get("Certifications", [])) if isinstance(saved_sec.get("Certifications"), list) else 0))
+            num_certs = int(st.number_input(t("num_certs"), 0, 10, len(saved_sec.get("Certifications", [])) if isinstance(saved_sec.get("Certifications", list), list) else 0))
             certs = []
             for i in range(num_certs):
                 cert_data = saved_sec.get("Certifications", [])[i] if isinstance(saved_sec.get("Certifications", []), list) and i < len(saved_sec.get("Certifications", [])) else {}
@@ -1389,7 +1466,7 @@ with col_edit_area:
 
         # -------- AWARDS --------
         with st.expander(t("awards")):
-            num_awards = int(st.number_input(t("num_awards"), 0, 10, len(saved_sec.get("Awards", [])) if isinstance(saved_sec.get("Awards"), list) else 0))
+            num_awards = int(st.number_input(t("num_awards"), 0, 10, len(saved_sec.get("Awards", [])) if isinstance(saved_sec.get("Awards", list), list) else 0))
             awards = []
             for i in range(num_awards):
                 award_data = saved_sec.get("Awards", [])[i] if isinstance(saved_sec.get("Awards", []), list) and i < len(saved_sec.get("Awards", [])) else {}
@@ -1410,7 +1487,7 @@ with col_edit_area:
 
         # -------- LANGUAGES --------
         with st.expander(t("languages")):
-            num_langs = int(st.number_input(t("num_langs"), 0, 10, len(saved_sec.get("Languages", [])) if isinstance(saved_sec.get("Languages"), list) else 0))
+            num_langs = int(st.number_input(t("num_langs"), 0, 10, len(saved_sec.get("Languages", [])) if isinstance(saved_sec.get("Languages", list), list) else 0))
             langs = []
             for i in range(num_langs):
                 lang_data = saved_sec.get("Languages", [])[i] if isinstance(saved_sec.get("Languages", []), list) and i < len(saved_sec.get("Languages", [])) else {}
@@ -1426,7 +1503,7 @@ with col_edit_area:
 
         # -------- EXPERIENCE --------
         with st.expander(t("experience")):
-            num_exp = int(st.number_input(t("num_exp"), 0, 10, len(saved_sec.get("Experience", [])) if isinstance(saved_sec.get("Experience"), list) else 1))
+            num_exp = int(st.number_input(t("num_exp"), 0, 10, len(saved_sec.get("Experience", [])) if isinstance(saved_sec.get("Experience", list), list) else 1))
             experiences = []
             for i in range(num_exp):
                 exp_data = saved_sec.get("Experience", [])[i] if isinstance(saved_sec.get("Experience", []), list) and i < len(saved_sec.get("Experience", [])) else {}
