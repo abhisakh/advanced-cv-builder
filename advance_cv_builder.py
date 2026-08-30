@@ -6,6 +6,7 @@ import base64
 import json
 import os
 import re
+import uuid
 import pymupdf
 from datetime import datetime
 from io import BytesIO
@@ -410,6 +411,35 @@ def get_image_base64(uploaded_file):
         base64_encoded = base64.b64encode(bytes_data).decode("utf-8")
         return f"data:{uploaded_file.type};base64,{base64_encoded}"
     return None
+
+def ensure_item_ids(items: List[Dict]) -> None:
+    """Make sure every dict in a reorderable list has a stable, unique '_uid'.
+
+    Widget keys for these list-backed sections must be bound to this uid
+    (not the list index) so that Up/Down reordering isn't clobbered by
+    Streamlit re-injecting stale widget state tied to the old index.
+    """
+    for item in items:
+        if "_uid" not in item:
+            item["_uid"] = uuid.uuid4().hex[:8]
+
+
+def export_items(items: List[Dict], predicate) -> List[Dict]:
+    """Build a filtered, '_uid'-stripped copy of a section list for scoring,
+    PDF rendering, and JSON export.
+
+    IMPORTANT: this must never be written back into
+    st.session_state.cv_data["sections_data"] (that's the widget backing
+    store). Dropping "empty" rows there loses their '_uid', which orphans
+    the still-open text_input/text_area widgets for that row on the very
+    next keystroke's rerun and makes typed text appear to vanish.
+    """
+    result = []
+    for item in items:
+        if predicate(item):
+            result.append({k: v for k, v in item.items() if k != "_uid"})
+    return result
+
 
 def validate_email(email: str) -> bool:
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
@@ -1344,8 +1374,15 @@ with col_edit_area:
         st.divider()
         st.header(t("cv_content"))
 
-        sections_data = {}
-        saved_sec = cv_data.get("sections_data", {})
+        # Initialize sections_data from st.session_state directly to persist changes
+        if "sections_data" not in st.session_state.cv_data:
+            st.session_state.cv_data["sections_data"] = {}
+
+        saved_sec = st.session_state.cv_data["sections_data"]
+        # Filtered/exported view built in parallel with saved_sec. Used only
+        # for scoring, PDF rendering, AI prompts, and JSON export — never
+        # written back to session_state (see export_items docstring).
+        export_sec: Dict[str, Any] = {}
 
         # -------- PROFILES & LINKS --------
         with st.expander(t("profiles_links"), expanded=True):
@@ -1357,249 +1394,462 @@ with col_edit_area:
             with col_portfolio:
                 portfolio = st.text_input(t("portfolio"), saved_sec.get("Profiles & Links", {}).get("Portfolio", ""), placeholder="https://...")
 
-            sections_data["Profiles & Links"] = {"GitHub": github, "LinkedIn": linkedin, "Portfolio": portfolio}
+            saved_sec["Profiles & Links"] = {"GitHub": github, "LinkedIn": linkedin, "Portfolio": portfolio}
 
         # -------- TECHNICAL SKILLS --------
         with st.expander(t("tech_skills")):
-            num_tech = int(st.number_input(t("num_tech"), 0, 10, len(saved_sec.get("Technical Skills", [])) if isinstance(saved_sec.get("Technical Skills"), list) else 1))
-            tech_items = []
+            saved_tech = saved_sec.get("Technical Skills", [])
+            if not isinstance(saved_tech, list): saved_tech = []
+
+            num_tech = int(st.number_input(t("num_tech"), 0, 10, len(saved_tech) if len(saved_tech) > 0 else 1, key="num_tech_input"))
+
+            while len(saved_tech) < num_tech:
+                saved_tech.append({})
+            while len(saved_tech) > num_tech:
+                saved_tech.pop()
+            ensure_item_ids(saved_tech)
+
             for i in range(num_tech):
-                item_data = saved_sec.get("Technical Skills", [])[i] if isinstance(saved_sec.get("Technical Skills"), list) and i < len(saved_sec.get("Technical Skills", [])) else {}
+                item_data = saved_tech[i]
+                uid = item_data["_uid"]
+                st.markdown(f"**Item #{i+1}**")
                 c_name, c_desc = st.columns(2)
                 with c_name:
-                    t_name = st.text_input(t("name"), key=f"tech_name_{i}", value=item_data.get("name", ""))
+                    t_name = st.text_input(t("name"), key=f"tech_name_{uid}", value=item_data.get("name", ""))
                 with c_desc:
-                    t_desc = st.text_input(t("description"), key=f"tech_desc_{i}", value=item_data.get("description", ""))
-                t_keywords = st.text_area(t("keywords"), key=f"tech_keywords_{i}", value=item_data.get("keywords", ""), height=60)
-                if t_name or t_keywords:
-                    tech_items.append({"name": t_name, "description": t_desc, "keywords": t_keywords})
+                    t_desc = st.text_input(t("description"), key=f"tech_desc_{uid}", value=item_data.get("description", ""))
+                t_keywords = st.text_area(t("keywords"), key=f"tech_keywords_{uid}", value=item_data.get("keywords", ""), height=60)
+
+                bc1, bc2, _ = st.columns([1, 1, 4])
+                with bc1:
+                    if i > 0 and st.button("⬆ Up", key=f"tech_up_{uid}"):
+                        saved_tech[i], saved_tech[i-1] = saved_tech[i-1], saved_tech[i]
+                        saved_sec["Technical Skills"] = saved_tech
+                        st.rerun()
+                with bc2:
+                    if i < num_tech - 1 and st.button("⬇ Down", key=f"tech_down_{uid}"):
+                        saved_tech[i], saved_tech[i+1] = saved_tech[i+1], saved_tech[i]
+                        saved_sec["Technical Skills"] = saved_tech
+                        st.rerun()
+
+                saved_tech[i] = {"_uid": uid, "name": t_name, "description": t_desc, "keywords": t_keywords}
                 st.divider()
-            sections_data["Technical Skills"] = tech_items
+            saved_sec["Technical Skills"] = saved_tech
+            export_sec["Technical Skills"] = export_items(saved_tech, lambda it: it.get("name") or it.get("keywords"))
 
         # -------- SOFT SKILLS --------
         with st.expander(t("soft_skills")):
-            num_soft = int(st.number_input(t("num_soft"), 0, 10, len(saved_sec.get("Soft Skills", [])) if isinstance(saved_sec.get("Soft Skills"), list) else 1))
-            soft_items = []
+            saved_soft = saved_sec.get("Soft Skills", [])
+            if not isinstance(saved_soft, list): saved_soft = []
+
+            num_soft = int(st.number_input(t("num_soft"), 0, 10, len(saved_soft) if len(saved_soft) > 0 else 1, key="num_soft_input"))
+            while len(saved_soft) < num_soft: saved_soft.append({})
+            while len(saved_soft) > num_soft: saved_soft.pop()
+            ensure_item_ids(saved_soft)
+
             for i in range(num_soft):
-                item_data = saved_sec.get("Soft Skills", [])[i] if isinstance(saved_sec.get("Soft Skills"), list) and i < len(saved_sec.get("Soft Skills", [])) else {}
+                item_data = saved_soft[i]
+                uid = item_data["_uid"]
+                st.markdown(f"**Item #{i+1}**")
                 c_name, c_desc = st.columns(2)
                 with c_name:
-                    s_name = st.text_input(t("name"), key=f"soft_name_{i}", value=item_data.get("name", ""))
+                    s_name = st.text_input(t("name"), key=f"soft_name_{uid}", value=item_data.get("name", ""))
                 with c_desc:
-                    s_desc = st.text_input(t("description"), key=f"soft_desc_{i}", value=item_data.get("description", ""))
-                s_keywords = st.text_area(t("keywords"), key=f"soft_keywords_{i}", value=item_data.get("keywords", ""), height=60)
-                if s_name or s_keywords:
-                    soft_items.append({"name": s_name, "description": s_desc, "keywords": s_keywords})
+                    s_desc = st.text_input(t("description"), key=f"soft_desc_{uid}", value=item_data.get("description", ""))
+                s_keywords = st.text_area(t("keywords"), key=f"soft_keywords_{uid}", value=item_data.get("keywords", ""), height=60)
+
+                bc1, bc2, _ = st.columns([1, 1, 4])
+                with bc1:
+                    if i > 0 and st.button("⬆ Up", key=f"soft_up_{uid}"):
+                        saved_soft[i], saved_soft[i-1] = saved_soft[i-1], saved_soft[i]
+                        saved_sec["Soft Skills"] = saved_soft
+                        st.rerun()
+                with bc2:
+                    if i < num_soft - 1 and st.button("⬇ Down", key=f"soft_down_{uid}"):
+                        saved_soft[i], saved_soft[i+1] = saved_soft[i+1], saved_soft[i]
+                        saved_sec["Soft Skills"] = saved_soft
+                        st.rerun()
+
+                saved_soft[i] = {"_uid": uid, "name": s_name, "description": s_desc, "keywords": s_keywords}
                 st.divider()
-            sections_data["Soft Skills"] = soft_items
+            saved_sec["Soft Skills"] = saved_soft
+            export_sec["Soft Skills"] = export_items(saved_soft, lambda it: it.get("name") or it.get("keywords"))
 
         # -------- STRENGTHS --------
         with st.expander(t("strengths")):
-            num_strengths = int(st.number_input(t("num_strengths"), 0, 10, len(saved_sec.get("Strengths", [])) if isinstance(saved_sec.get("Strengths"), list) else 0))
-            strength_items = []
+            saved_str = saved_sec.get("Strengths", [])
+            if not isinstance(saved_str, list): saved_str = []
+
+            num_strengths = int(st.number_input(t("num_strengths"), 0, 10, len(saved_str), key="num_str_input"))
+            while len(saved_str) < num_strengths: saved_str.append({})
+            while len(saved_str) > num_strengths: saved_str.pop()
+            ensure_item_ids(saved_str)
+
             for i in range(num_strengths):
-                item_data = saved_sec.get("Strengths", [])[i] if isinstance(saved_sec.get("Strengths", []), list) and i < len(saved_sec.get("Strengths", [])) else {}
+                item_data = saved_str[i]
+                uid = item_data["_uid"]
+                st.markdown(f"**Item #{i+1}**")
                 c_name, c_desc = st.columns(2)
                 with c_name:
-                    str_name = st.text_input(t("name"), key=f"strength_name_{i}", value=item_data.get("name", ""))
+                    str_name = st.text_input(t("name"), key=f"strength_name_{uid}", value=item_data.get("name", ""))
                 with c_desc:
-                    str_desc = st.text_input(t("description"), key=f"strength_desc_{i}", value=item_data.get("description", ""))
-                str_keywords = st.text_area(t("keywords"), key=f"strength_keywords_{i}", value=item_data.get("keywords", ""), height=60)
-                if str_name or str_keywords:
-                    strength_items.append({"name": str_name, "description": str_desc, "keywords": str_keywords})
+                    str_desc = st.text_input(t("description"), key=f"strength_desc_{uid}", value=item_data.get("description", ""))
+                str_keywords = st.text_area(t("keywords"), key=f"strength_keywords_{uid}", value=item_data.get("keywords", ""), height=60)
+
+                bc1, bc2, _ = st.columns([1, 1, 4])
+                with bc1:
+                    if i > 0 and st.button("⬆ Up", key=f"str_up_{uid}"):
+                        saved_str[i], saved_str[i-1] = saved_str[i-1], saved_str[i]
+                        saved_sec["Strengths"] = saved_str
+                        st.rerun()
+                with bc2:
+                    if i < num_strengths - 1 and st.button("⬇ Down", key=f"str_down_{uid}"):
+                        saved_str[i], saved_str[i+1] = saved_str[i+1], saved_str[i]
+                        saved_sec["Strengths"] = saved_str
+                        st.rerun()
+
+                saved_str[i] = {"_uid": uid, "name": str_name, "description": str_desc, "keywords": str_keywords}
                 st.divider()
-            sections_data["Strengths"] = strength_items
+            saved_sec["Strengths"] = saved_str
+            export_sec["Strengths"] = export_items(saved_str, lambda it: it.get("name") or it.get("keywords"))
 
         # -------- INTERESTS --------
         with st.expander(t("interests")):
-            num_interests = int(st.number_input(t("num_interests"), 0, 10, len(saved_sec.get("Interests", [])) if isinstance(saved_sec.get("Interests", list), list) else 0))
-            interest_items = []
+            saved_int = saved_sec.get("Interests", [])
+            if not isinstance(saved_int, list): saved_int = []
+
+            num_interests = int(st.number_input(t("num_interests"), 0, 10, len(saved_int), key="num_int_input"))
+            while len(saved_int) < num_interests: saved_int.append({})
+            while len(saved_int) > num_interests: saved_int.pop()
+            ensure_item_ids(saved_int)
+
             for i in range(num_interests):
-                item_data = saved_sec.get("Interests", [])[i] if isinstance(saved_sec.get("Interests", []), list) and i < len(saved_sec.get("Interests", [])) else {}
+                item_data = saved_int[i]
+                uid = item_data["_uid"]
+                st.markdown(f"**Item #{i+1}**")
                 c_name, c_desc = st.columns(2)
                 with c_name:
-                    int_name = st.text_input(t("name"), key=f"interest_name_{i}", value=item_data.get("name", ""))
+                    int_name = st.text_input(t("name"), key=f"interest_name_{uid}", value=item_data.get("name", ""))
                 with c_desc:
-                    int_desc = st.text_input(t("description"), key=f"interest_desc_{i}", value=item_data.get("description", ""))
-                int_keywords = st.text_area(t("keywords"), key=f"interest_keywords_{i}", value=item_data.get("keywords", ""), height=60)
-                if int_name or int_keywords:
-                    interest_items.append({"name": int_name, "description": int_desc, "keywords": int_keywords})
+                    int_desc = st.text_input(t("description"), key=f"interest_desc_{uid}", value=item_data.get("description", ""))
+                int_keywords = st.text_area(t("keywords"), key=f"interest_keywords_{uid}", value=item_data.get("keywords", ""), height=60)
+
+                bc1, bc2, _ = st.columns([1, 1, 4])
+                with bc1:
+                    if i > 0 and st.button("⬆ Up", key=f"int_up_{uid}"):
+                        saved_int[i], saved_int[i-1] = saved_int[i-1], saved_int[i]
+                        saved_sec["Interests"] = saved_int
+                        st.rerun()
+                with bc2:
+                    if i < num_interests - 1 and st.button("⬇ Down", key=f"int_down_{uid}"):
+                        saved_int[i], saved_int[i+1] = saved_int[i+1], saved_int[i]
+                        saved_sec["Interests"] = saved_int
+                        st.rerun()
+
+                saved_int[i] = {"_uid": uid, "name": int_name, "description": int_desc, "keywords": int_keywords}
                 st.divider()
-            sections_data["Interests"] = interest_items
+            saved_sec["Interests"] = saved_int
+            export_sec["Interests"] = export_items(saved_int, lambda it: it.get("name") or it.get("keywords"))
 
         # -------- CERTIFICATIONS --------
         with st.expander(t("certifications")):
-            num_certs = int(st.number_input(t("num_certs"), 0, 10, len(saved_sec.get("Certifications", [])) if isinstance(saved_sec.get("Certifications", list), list) else 0))
-            certs = []
+            saved_cert = saved_sec.get("Certifications", [])
+            if not isinstance(saved_cert, list): saved_cert = []
+
+            num_certs = int(st.number_input(t("num_certs"), 0, 10, len(saved_cert), key="num_certs_input"))
+            while len(saved_cert) < num_certs: saved_cert.append({})
+            while len(saved_cert) > num_certs: saved_cert.pop()
+            ensure_item_ids(saved_cert)
+
             for i in range(num_certs):
-                cert_data = saved_sec.get("Certifications", [])[i] if isinstance(saved_sec.get("Certifications", []), list) and i < len(saved_sec.get("Certifications", [])) else {}
+                cert_data = saved_cert[i]
+                uid = cert_data["_uid"]
+                st.markdown(f"**Certification #{i+1}**")
                 col_title, col_issuer, col_date = st.columns([2, 2, 1])
                 with col_title:
-                    title_val = st.text_input(t("name"), key=f"cert_title_{i}", value=cert_data.get("title", ""))
+                    title_val = st.text_input(t("name"), key=f"cert_title_{uid}", value=cert_data.get("title", ""))
                 with col_issuer:
-                    issuer_val = st.text_input(t("issuer"), key=f"cert_issuer_{i}", value=cert_data.get("issuer", ""))
+                    issuer_val = st.text_input(t("issuer"), key=f"cert_issuer_{uid}", value=cert_data.get("issuer", ""))
                 with col_date:
-                    date_val = st.text_input(t("date"), key=f"cert_date_{i}", value=cert_data.get("date", ""))
+                    date_val = st.text_input(t("date"), key=f"cert_date_{uid}", value=cert_data.get("date", ""))
 
                 col_i_bold, col_i_italic, col_i_size = st.columns(3)
                 with col_i_bold:
-                    bold_issuer = st.checkbox("Bold Issuer", key=f"cert_bold_issuer_{i}", value=cert_data.get("bold_issuer", False))
+                    bold_issuer = st.checkbox("Bold Issuer", key=f"cert_bold_issuer_{uid}", value=cert_data.get("bold_issuer", False))
                 with col_i_italic:
-                    italic_issuer = st.checkbox("Italic Issuer", key=f"cert_italic_issuer_{i}", value=cert_data.get("italic_issuer", True))
+                    italic_issuer = st.checkbox("Italic Issuer", key=f"cert_italic_issuer_{uid}", value=cert_data.get("italic_issuer", True))
                 with col_i_size:
-                    issuer_size = st.slider("Issuer Size (pt)", 8, 16, cert_data.get("issuer_size", 10), key=f"cert_size_issuer_{i}")
+                    issuer_size = st.slider("Issuer Size (pt)", 8, 16, cert_data.get("issuer_size", 10), key=f"cert_size_issuer_{uid}")
 
                 col_url, col_label = st.columns([2, 1])
                 with col_url:
-                    url_val = st.text_input(t("website_url"), key=f"cert_url_{i}", value=cert_data.get("url", ""))
+                    url_val = st.text_input(t("website_url"), key=f"cert_url_{uid}", value=cert_data.get("url", ""))
                 with col_label:
-                    label_val = st.text_input(t("link_label"), key=f"cert_label_{i}", value=cert_data.get("label", t("view_credentials")))
-                summary_val = st.text_area(t("summary"), key=f"cert_summary_{i}", value=cert_data.get("summary", ""), height=60)
-                if title_val or issuer_val or url_val:
-                    certs.append({
-                        "title": title_val, "issuer": issuer_val, "date": date_val, "url": url_val,
-                        "label": label_val, "summary": summary_val,
-                        "bold_issuer": bold_issuer, "italic_issuer": italic_issuer, "issuer_size": issuer_size
-                    })
+                    label_val = st.text_input(t("link_label"), key=f"cert_label_{uid}", value=cert_data.get("label", t("view_credentials")))
+                summary_val = st.text_area(t("summary"), key=f"cert_summary_{uid}", value=cert_data.get("summary", ""), height=60)
+
+                bc1, bc2, _ = st.columns([1, 1, 4])
+                with bc1:
+                    if i > 0 and st.button("⬆ Up", key=f"cert_up_{uid}"):
+                        saved_cert[i], saved_cert[i-1] = saved_cert[i-1], saved_cert[i]
+                        saved_sec["Certifications"] = saved_cert
+                        st.rerun()
+                with bc2:
+                    if i < num_certs - 1 and st.button("⬇ Down", key=f"cert_down_{uid}"):
+                        saved_cert[i], saved_cert[i+1] = saved_cert[i+1], saved_cert[i]
+                        saved_sec["Certifications"] = saved_cert
+                        st.rerun()
+
+                saved_cert[i] = {
+                    "_uid": uid, "title": title_val, "issuer": issuer_val, "date": date_val, "url": url_val,
+                    "label": label_val, "summary": summary_val,
+                    "bold_issuer": bold_issuer, "italic_issuer": italic_issuer, "issuer_size": issuer_size
+                }
                 st.divider()
-            sections_data["Certifications"] = certs
+            saved_sec["Certifications"] = saved_cert
+            export_sec["Certifications"] = export_items(saved_cert, lambda it: it.get("title") or it.get("issuer") or it.get("url"))
 
         # -------- AWARDS --------
         with st.expander(t("awards")):
-            num_awards = int(st.number_input(t("num_awards"), 0, 10, len(saved_sec.get("Awards", [])) if isinstance(saved_sec.get("Awards", list), list) else 0))
-            awards = []
+            saved_awd = saved_sec.get("Awards", [])
+            if not isinstance(saved_awd, list): saved_awd = []
+
+            num_awards = int(st.number_input(t("num_awards"), 0, 10, len(saved_awd), key="num_awards_input"))
+            while len(saved_awd) < num_awards: saved_awd.append({})
+            while len(saved_awd) > num_awards: saved_awd.pop()
+            ensure_item_ids(saved_awd)
+
             for i in range(num_awards):
-                award_data = saved_sec.get("Awards", [])[i] if isinstance(saved_sec.get("Awards", []), list) and i < len(saved_sec.get("Awards", [])) else {}
+                award_data = saved_awd[i]
+                uid = award_data["_uid"]
+                st.markdown(f"**Award #{i+1}**")
                 col_title, col_awarder = st.columns(2)
                 with col_title:
-                    a_title = st.text_input(t("name"), key=f"award_title_{i}", value=award_data.get("title", ""))
+                    a_title = st.text_input(t("name"), key=f"award_title_{uid}", value=award_data.get("title", ""))
                 with col_awarder:
-                    a_awarder = st.text_input(t("awarder"), key=f"award_awarder_{i}", value=award_data.get("awarder", ""))
+                    a_awarder = st.text_input(t("awarder"), key=f"award_awarder_{uid}", value=award_data.get("awarder", ""))
                 col_date, col_url = st.columns(2)
                 with col_date:
-                    a_date = st.text_input(t("date"), key=f"award_date_{i}", value=award_data.get("date", ""))
+                    a_date = st.text_input(t("date"), key=f"award_date_{uid}", value=award_data.get("date", ""))
                 with col_url:
-                    a_url = st.text_input(t("website_url"), key=f"award_url_{i}", value=award_data.get("url", ""))
-                if a_title or a_awarder:
-                    awards.append({"title": a_title, "awarder": a_awarder, "date": a_date, "url": a_url})
+                    a_url = st.text_input(t("website_url"), key=f"award_url_{uid}", value=award_data.get("url", ""))
+
+                bc1, bc2, _ = st.columns([1, 1, 4])
+                with bc1:
+                    if i > 0 and st.button("⬆ Up", key=f"awd_up_{uid}"):
+                        saved_awd[i], saved_awd[i-1] = saved_awd[i-1], saved_awd[i]
+                        saved_sec["Awards"] = saved_awd
+                        st.rerun()
+                with bc2:
+                    if i < num_awards - 1 and st.button("⬇ Down", key=f"awd_down_{uid}"):
+                        saved_awd[i], saved_awd[i+1] = saved_awd[i+1], saved_awd[i]
+                        saved_sec["Awards"] = saved_awd
+                        st.rerun()
+
+                saved_awd[i] = {"_uid": uid, "title": a_title, "awarder": a_awarder, "date": a_date, "url": a_url}
                 st.divider()
-            sections_data["Awards"] = awards
+            saved_sec["Awards"] = saved_awd
+            export_sec["Awards"] = export_items(saved_awd, lambda it: it.get("title") or it.get("awarder"))
 
         # -------- LANGUAGES --------
         with st.expander(t("languages")):
-            num_langs = int(st.number_input(t("num_langs"), 0, 10, len(saved_sec.get("Languages", [])) if isinstance(saved_sec.get("Languages", list), list) else 0))
-            langs = []
+            saved_lang = saved_sec.get("Languages", [])
+            if not isinstance(saved_lang, list): saved_lang = []
+
+            num_langs = int(st.number_input(t("num_langs"), 0, 10, len(saved_lang), key="num_langs_input"))
+            while len(saved_lang) < num_langs: saved_lang.append({})
+            while len(saved_lang) > num_langs: saved_lang.pop()
+            ensure_item_ids(saved_lang)
+
             for i in range(num_langs):
-                lang_data = saved_sec.get("Languages", [])[i] if isinstance(saved_sec.get("Languages", []), list) and i < len(saved_sec.get("Languages", [])) else {}
+                lang_data = saved_lang[i]
+                uid = lang_data["_uid"]
+                st.markdown(f"**Language #{i+1}**")
                 col_name, col_desc = st.columns(2)
                 with col_name:
-                    name_val = st.text_input(t("name"), key=f"lang_name_{i}", value=lang_data.get("name", ""))
+                    name_val = st.text_input(t("name"), key=f"lang_name_{uid}", value=lang_data.get("name", ""))
                 with col_desc:
-                    desc_val = st.text_input(t("description"), key=f"lang_desc_{i}", value=lang_data.get("description", ""))
-                if name_val:
-                    langs.append({"name": name_val, "description": desc_val})
+                    desc_val = st.text_input(t("description"), key=f"lang_desc_{uid}", value=lang_data.get("description", ""))
+
+                bc1, bc2, _ = st.columns([1, 1, 4])
+                with bc1:
+                    if i > 0 and st.button("⬆ Up", key=f"lang_up_{uid}"):
+                        saved_lang[i], saved_lang[i-1] = saved_lang[i-1], saved_lang[i]
+                        saved_sec["Languages"] = saved_lang
+                        st.rerun()
+                with bc2:
+                    if i < num_langs - 1 and st.button("⬇ Down", key=f"lang_down_{uid}"):
+                        saved_lang[i], saved_lang[i+1] = saved_lang[i+1], saved_lang[i]
+                        saved_sec["Languages"] = saved_lang
+                        st.rerun()
+
+                saved_lang[i] = {"_uid": uid, "name": name_val, "description": desc_val}
                 st.divider()
-            sections_data["Languages"] = langs
+            saved_sec["Languages"] = saved_lang
+            export_sec["Languages"] = export_items(saved_lang, lambda it: it.get("name"))
 
         # -------- EXPERIENCE --------
         with st.expander(t("experience")):
-            num_exp = int(st.number_input(t("num_exp"), 0, 10, len(saved_sec.get("Experience", [])) if isinstance(saved_sec.get("Experience", list), list) else 1))
-            experiences = []
+            saved_exp = saved_sec.get("Experience", [])
+            if not isinstance(saved_exp, list): saved_exp = []
+
+            num_exp = int(st.number_input(t("num_exp"), 0, 10, len(saved_exp) if len(saved_exp) > 0 else 1, key="num_exp_input"))
+            while len(saved_exp) < num_exp: saved_exp.append({})
+            while len(saved_exp) > num_exp: saved_exp.pop()
+            ensure_item_ids(saved_exp)
+
             for i in range(num_exp):
-                exp_data = saved_sec.get("Experience", [])[i] if isinstance(saved_sec.get("Experience", []), list) and i < len(saved_sec.get("Experience", [])) else {}
+                exp_data = saved_exp[i]
+                uid = exp_data["_uid"]
+                st.markdown(f"**Experience Entry #{i+1}**")
                 col_company, col_title = st.columns(2)
                 with col_company:
-                    company = st.text_input(t("company_name"), key=f"exp_company_{i}", value=exp_data.get("company", ""))
+                    company = st.text_input(t("company_name"), key=f"exp_company_{uid}", value=exp_data.get("company", ""))
                 with col_title:
-                    job_title = st.text_input(t("position_title"), key=f"exp_title_{i}", value=exp_data.get("title", ""))
+                    job_title = st.text_input(t("position_title"), key=f"exp_title_{uid}", value=exp_data.get("title", ""))
 
                 col_c_bold, col_c_italic, col_c_size = st.columns(3)
                 with col_c_bold:
-                    bold_company = st.checkbox("Bold Company", key=f"exp_bold_comp_{i}", value=exp_data.get("bold_company", False))
+                    bold_company = st.checkbox("Bold Company", key=f"exp_bold_comp_{uid}", value=exp_data.get("bold_company", False))
                 with col_c_italic:
-                    italic_company = st.checkbox("Italic Company", key=f"exp_italic_comp_{i}", value=exp_data.get("italic_company", True))
+                    italic_company = st.checkbox("Italic Company", key=f"exp_italic_comp_{uid}", value=exp_data.get("italic_company", True))
                 with col_c_size:
-                    company_size = st.slider("Company Size (pt)", 8, 16, exp_data.get("company_size", 10), key=f"exp_size_comp_{i}")
+                    company_size = st.slider("Company Size (pt)", 8, 16, exp_data.get("company_size", 10), key=f"exp_size_comp_{uid}")
 
                 col_date, col_loc = st.columns(2)
                 with col_date:
-                    date_range = st.text_input(t("date_range"), key=f"exp_date_{i}", value=exp_data.get("date_range", ""))
+                    date_range = st.text_input(t("date_range"), key=f"exp_date_{uid}", value=exp_data.get("date_range", ""))
                 with col_loc:
-                    exp_location = st.text_input(t("location"), key=f"exp_location_{i}", value=exp_data.get("location", ""))
+                    exp_location = st.text_input(t("location"), key=f"exp_location_{uid}", value=exp_data.get("location", ""))
                 col_url, col_label = st.columns([2, 1])
                 with col_url:
-                    exp_website = st.text_input(t("website_url"), key=f"exp_url_{i}", value=exp_data.get("website", ""))
+                    exp_website = st.text_input(t("website_url"), key=f"exp_url_{uid}", value=exp_data.get("website", ""))
                 with col_label:
-                    exp_link_label = st.text_input(t("link_label"), key=f"exp_link_label_{i}", value=exp_data.get("link_label", t("visit_website")))
-                exp_summary = st.text_area(t("summary"), key=f"exp_summary_{i}", value=exp_data.get("summary", ""), height=60, placeholder=t("summary_placeholder"))
+                    exp_link_label = st.text_input(t("link_label"), key=f"exp_link_label_{uid}", value=exp_data.get("link_label", t("visit_website")))
+                exp_summary = st.text_area(t("summary"), key=f"exp_summary_{uid}", value=exp_data.get("summary", ""), height=60, placeholder=t("summary_placeholder"))
                 bullets = exp_data.get("bullets", [])
                 if isinstance(bullets, str): bullets = [bullets]
-                bullets_input = st.text_area(t("achievements"), key=f"exp_bullets_{i}", value="\n".join(bullets), height=80)
+                bullets_input = st.text_area(t("achievements"), key=f"exp_bullets_{uid}", value="\n".join(bullets), height=80)
                 bullets_list = [b.strip() for b in bullets_input.split("\n") if b.strip()]
-                if company or job_title or exp_summary or bullets_list:
-                    experiences.append({
-                        "company": company, "title": job_title, "date_range": date_range,
-                        "location": exp_location, "website": exp_website, "link_label": exp_link_label,
-                        "summary": exp_summary, "bullets": bullets_list,
-                        "bold_company": bold_company, "italic_company": italic_company, "company_size": company_size
-                    })
+
+                bc1, bc2, _ = st.columns([1, 1, 4])
+                with bc1:
+                    if i > 0 and st.button("⬆ Up", key=f"exp_up_{uid}"):
+                        saved_exp[i], saved_exp[i-1] = saved_exp[i-1], saved_exp[i]
+                        saved_sec["Experience"] = saved_exp
+                        st.rerun()
+                with bc2:
+                    if i < num_exp - 1 and st.button("⬇ Down", key=f"exp_down_{uid}"):
+                        saved_exp[i], saved_exp[i+1] = saved_exp[i+1], saved_exp[i]
+                        saved_sec["Experience"] = saved_exp
+                        st.rerun()
+
+                saved_exp[i] = {
+                    "_uid": uid, "company": company, "title": job_title, "date_range": date_range,
+                    "location": exp_location, "website": exp_website, "link_label": exp_link_label,
+                    "summary": exp_summary, "bullets": bullets_list,
+                    "bold_company": bold_company, "italic_company": italic_company, "company_size": company_size
+                }
                 st.divider()
-            sections_data["Experience"] = experiences
+            saved_sec["Experience"] = saved_exp
+            export_sec["Experience"] = export_items(saved_exp, lambda it: it.get("company") or it.get("title") or it.get("summary") or it.get("bullets"))
 
         # -------- EDUCATION --------
         with st.expander(t("education")):
-            num_edu = int(st.number_input(t("num_edu"), 0, 10, len(saved_sec.get("Education", [])) if isinstance(saved_sec.get("Education", list), list) else 1))
-            educations = []
+            saved_edu = saved_sec.get("Education", [])
+            if not isinstance(saved_edu, list): saved_edu = []
+
+            num_edu = int(st.number_input(t("num_edu"), 0, 10, len(saved_edu) if len(saved_edu) > 0 else 1, key="num_edu_input"))
+            while len(saved_edu) < num_edu: saved_edu.append({})
+            while len(saved_edu) > num_edu: saved_edu.pop()
+            ensure_item_ids(saved_edu)
+
             for i in range(num_edu):
-                edu_data = saved_sec.get("Education", [])[i] if isinstance(saved_sec.get("Education", []), list) and i < len(saved_sec.get("Education", [])) else {}
+                edu_data = saved_edu[i]
+                uid = edu_data["_uid"]
+                st.markdown(f"**Education Entry #{i+1}**")
                 col_degree, col_school = st.columns(2)
                 with col_degree:
-                    degree = st.text_input(t("position_title"), key=f"edu_degree_{i}", value=edu_data.get("degree", ""))
+                    degree = st.text_input(t("position_title"), key=f"edu_degree_{uid}", value=edu_data.get("degree", ""))
                 with col_school:
-                    school = st.text_input(t("school"), key=f"edu_school_{i}", value=edu_data.get("school", ""))
+                    school = st.text_input(t("school"), key=f"edu_school_{uid}", value=edu_data.get("school", ""))
 
                 col_s_bold, col_s_italic, col_s_size = st.columns(3)
                 with col_s_bold:
-                    bold_school = st.checkbox("Bold School", key=f"edu_bold_school_{i}", value=edu_data.get("bold_school", False))
+                    bold_school = st.checkbox("Bold School", key=f"edu_bold_school_{uid}", value=edu_data.get("bold_school", False))
                 with col_s_italic:
-                    italic_school = st.checkbox("Italic School", key=f"edu_italic_school_{i}", value=edu_data.get("italic_school", True))
+                    italic_school = st.checkbox("Italic School", key=f"edu_italic_school_{uid}", value=edu_data.get("italic_school", True))
                 with col_s_size:
-                    school_size = st.slider("School Size (pt)", 8, 16, edu_data.get("school_size", 10), key=f"edu_size_school_{i}")
+                    school_size = st.slider("School Size (pt)", 8, 16, edu_data.get("school_size", 10), key=f"edu_size_school_{uid}")
 
                 col_grad_start, col_grad_end = st.columns(2)
                 with col_grad_start:
-                    graduation = st.text_input(t("graduation_date"), key=f"edu_grad_{i}", value=edu_data.get("graduation", ""))
+                    graduation = st.text_input(t("graduation_date"), key=f"edu_grad_{uid}", value=edu_data.get("graduation", ""))
                 with col_grad_end:
-                    gpa = st.text_input(t("gpa"), key=f"edu_gpa_{i}", value=edu_data.get("gpa", ""))
-                highlights = st.text_area(t("highlights"), key=f"edu_highlights_{i}", value=edu_data.get("highlights", ""), height=60)
-                if degree or school:
-                    educations.append({
-                        "degree": degree, "school": school, "graduation": graduation,
-                        "gpa": gpa, "highlights": highlights,
-                        "bold_school": bold_school, "italic_school": italic_school, "school_size": school_size
-                    })
+                    gpa = st.text_input(t("gpa"), key=f"edu_gpa_{uid}", value=edu_data.get("gpa", ""))
+                highlights = st.text_area(t("highlights"), key=f"edu_highlights_{uid}", value=edu_data.get("highlights", ""), height=60)
+
+                bc1, bc2, _ = st.columns([1, 1, 4])
+                with bc1:
+                    if i > 0 and st.button("⬆ Up", key=f"edu_up_{uid}"):
+                        saved_edu[i], saved_edu[i-1] = saved_edu[i-1], saved_edu[i]
+                        saved_sec["Education"] = saved_edu
+                        st.rerun()
+                with bc2:
+                    if i < num_edu - 1 and st.button("⬇ Down", key=f"edu_down_{uid}"):
+                        saved_edu[i], saved_edu[i+1] = saved_edu[i+1], saved_edu[i]
+                        saved_sec["Education"] = saved_edu
+                        st.rerun()
+
+                saved_edu[i] = {
+                    "_uid": uid, "degree": degree, "school": school, "graduation": graduation,
+                    "gpa": gpa, "highlights": highlights,
+                    "bold_school": bold_school, "italic_school": italic_school, "school_size": school_size
+                }
                 st.divider()
-            sections_data["Education"] = educations
+            saved_sec["Education"] = saved_edu
+            export_sec["Education"] = export_items(saved_edu, lambda it: it.get("degree") or it.get("school"))
 
         # -------- PROJECTS --------
         with st.expander(t("projects")):
-            num_projects = int(st.number_input(t("num_projects"), 0, 10, len(saved_sec.get("Projects", [])) if isinstance(saved_sec.get("Projects", list), list) else 0))
-            projects = []
+            saved_proj = saved_sec.get("Projects", [])
+            if not isinstance(saved_proj, list): saved_proj = []
+
+            num_projects = int(st.number_input(t("num_projects"), 0, 10, len(saved_proj), key="num_projects_input"))
+            while len(saved_proj) < num_projects: saved_proj.append({})
+            while len(saved_proj) > num_projects: saved_proj.pop()
+            ensure_item_ids(saved_proj)
+
             for i in range(num_projects):
-                proj_data = saved_sec.get("Projects", [])[i] if isinstance(saved_sec.get("Projects", []), list) and i < len(saved_sec.get("Projects", [])) else {}
-                proj_name = st.text_input(t("project_name"), key=f"proj_name_{i}", value=proj_data.get("name", ""))
-                proj_desc = st.text_area(t("project_desc"), key=f"proj_desc_{i}", value=proj_data.get("description", ""), height=60)
-                proj_date = st.text_input(t("date_range"), key=f"proj_date_{i}", value=proj_data.get("date_range", ""))
+                proj_data = saved_proj[i]
+                uid = proj_data["_uid"]
+                st.markdown(f"**Project #{i+1}**")
+                proj_name = st.text_input(t("project_name"), key=f"proj_name_{uid}", value=proj_data.get("name", ""))
+                proj_desc = st.text_area(t("project_desc"), key=f"proj_desc_{uid}", value=proj_data.get("description", ""), height=60)
+                proj_date = st.text_input(t("date_range"), key=f"proj_date_{uid}", value=proj_data.get("date_range", ""))
                 col_url, col_label = st.columns([2, 1])
                 with col_url:
-                    proj_website = st.text_input(t("website_url"), key=f"proj_website_{i}", value=proj_data.get("website", ""))
+                    proj_website = st.text_input(t("website_url"), key=f"proj_website_{uid}", value=proj_data.get("website", ""))
                 with col_label:
-                    proj_link_label = st.text_input(t("link_label"), key=f"proj_link_label_{i}", value=proj_data.get("link_label", t("view_project")))
-                proj_summary = st.text_area(t("summary"), key=f"proj_summary_{i}", value=proj_data.get("summary", ""), height=60)
-                if proj_name or proj_desc:
-                    projects.append({"name": proj_name, "description": proj_desc, "date_range": proj_date, "website": proj_website, "link_label": proj_link_label, "summary": proj_summary})
+                    proj_link_label = st.text_input(t("link_label"), key=f"proj_link_label_{uid}", value=proj_data.get("link_label", t("view_project")))
+                proj_summary = st.text_area(t("summary"), key=f"proj_summary_{uid}", value=proj_data.get("summary", ""), height=60)
+
+                bc1, bc2, _ = st.columns([1, 1, 4])
+                with bc1:
+                    if i > 0 and st.button("⬆ Up", key=f"proj_up_{uid}"):
+                        saved_proj[i], saved_proj[i-1] = saved_proj[i-1], saved_proj[i]
+                        saved_sec["Projects"] = saved_proj
+                        st.rerun()
+                with bc2:
+                    if i < num_projects - 1 and st.button("⬇ Down", key=f"proj_down_{uid}"):
+                        saved_proj[i], saved_proj[i+1] = saved_proj[i+1], saved_proj[i]
+                        saved_sec["Projects"] = saved_proj
+                        st.rerun()
+
+                saved_proj[i] = {"_uid": uid, "name": proj_name, "description": proj_desc, "date_range": proj_date, "website": proj_website, "link_label": proj_link_label, "summary": proj_summary}
                 st.divider()
-            sections_data["Projects"] = projects
+            saved_sec["Projects"] = saved_proj
+            export_sec["Projects"] = export_items(saved_proj, lambda it: it.get("name") or it.get("description"))
 
         # -------- CUSTOM SECTIONS --------
         for custom_sec in st.session_state.custom_sections:
@@ -1607,18 +1857,27 @@ with col_edit_area:
             saved_custom_val = saved_sec.get(custom_sec, [])
             with st.expander(f"📌 {custom_sec} ({sec_type})"):
                 c_val = st.text_area(f"{custom_sec} Content", value=str(saved_custom_val) if isinstance(saved_custom_val, str) else "", key=f"custom_sec_{custom_sec}", height=100)
-                sections_data[custom_sec] = c_val
+                saved_sec[custom_sec] = c_val
 
         cv_data.update({
             "full_name": full_name, "title": title, "email": email, "phone": phone,
             "location": location, "residency": residency, "relocation": relocation,
-            "linkedin_url": linkedin_url, "summary": summary, "sections_data": sections_data,
+            "linkedin_url": linkedin_url, "summary": summary, "sections_data": saved_sec,
             "custom_sections": st.session_state.custom_sections, "custom_section_types": st.session_state.custom_section_types,
             "section_visibility": st.session_state.section_visibility, "section_placement": st.session_state.section_placement,
             "section_order": st.session_state.section_order
         })
         st.session_state.cv_data = cv_data
         safe_filename = full_name.replace(' ', '_') if full_name else "My"
+
+        # Filtered view for scoring, AI prompts, PDF rendering, and JSON export.
+        # cv_data itself (above) keeps every padded row, blanks included, so
+        # that widget keys stay bound to a stable "_uid" across reruns. This
+        # copy drops the empty rows instead of persisting that back into
+        # session_state, which is what previously orphaned an in-progress
+        # field's key and made freshly typed text vanish after Enter.
+        export_cv_data = dict(cv_data)
+        export_cv_data["sections_data"] = {**saved_sec, **export_sec}
 
         # ------------------------------------------------------------------------
         # CV ANALYSIS & EXPORT OPTIONS
@@ -1628,7 +1887,7 @@ with col_edit_area:
 
         col_score, col_ai = st.columns([1, 1])
         with col_score:
-            score, suggestions = get_cv_score(cv_data)
+            score, suggestions = get_cv_score(export_cv_data)
             color = "🟢" if score >= 80 else "🟡" if score >= 60 else "🔴"
             st.metric(t("completeness_score"), f"{score}/100", f"{color}")
             with st.expander(t("improvement_suggestions")):
@@ -1638,7 +1897,7 @@ with col_edit_area:
         with col_ai:
             if st.button(t("btn_ai_general"), use_container_width=True):
                 with st.spinner("Analyzing..."):
-                    st.session_state.ai_general_text = get_cv_enhancement_suggestions(cv_data)
+                    st.session_state.ai_general_text = get_cv_enhancement_suggestions(export_cv_data)
                     st.session_state.show_ai_suggestions = True
             if st.session_state.show_ai_suggestions and "ai_general_text" in st.session_state:
                 with st.expander(t("general_ai_suggestions"), expanded=True):
@@ -1663,7 +1922,7 @@ with col_edit_area:
                 st.warning("⚠️ Please paste a job description first.")
             else:
                 with st.spinner("Comparing..."):
-                    st.session_state.job_tailored_analysis = get_job_tailored_suggestions(cv_data, job_desc_input)
+                    st.session_state.job_tailored_analysis = get_job_tailored_suggestions(export_cv_data, job_desc_input)
                     st.session_state.show_job_match = True
 
         if st.session_state.get("show_job_match", False) and "job_tailored_analysis" in st.session_state:
@@ -1675,7 +1934,7 @@ with col_edit_area:
 
         selected_template_key = cast(str, st.session_state.selected_template)
         rendered_html = generate_cv_html(
-            cv_data, CV_TEMPLATES[selected_template_key], photo_settings,
+            export_cv_data, CV_TEMPLATES[selected_template_key], photo_settings,
             sidebar_width_pct=sidebar_width_pct if layout_mode == "Two Columns" else 32,
             sidebar_position=sidebar_position if layout_mode == "Two Columns" else "Right",
             layout_mode=layout_mode, primary_color=primary_color, accent_color=accent_color,
@@ -1688,12 +1947,12 @@ with col_edit_area:
         with sub_col1:
             st.download_button(t("btn_download_pdf"), data=pdf_bytes, file_name=f"{safe_filename}_CV.pdf", mime="application/pdf", use_container_width=True)
         with sub_col2:
-            st.download_button(t("btn_download_json"), data=json.dumps(cv_data, indent=2), file_name=f"{safe_filename}_CV_data.json", mime="application/json", use_container_width=True)
+            st.download_button(t("btn_download_json"), data=json.dumps(export_cv_data, indent=2), file_name=f"{safe_filename}_CV_data.json", mime="application/json", use_container_width=True)
 
         with st.popover(t("save_version"), use_container_width=True):
             version_input = st.text_input(t("version_tag"), value=f"{safe_filename}_{st.session_state.get('selected_template', 'default')}")
             if st.button(t("confirm_save"), use_container_width=True):
-                save_version(cv_data, version_input)
+                save_version(export_cv_data, version_input)
                 st.success("✅ Saved!")
 
 # 2. Right Column Scrollable Viewport
