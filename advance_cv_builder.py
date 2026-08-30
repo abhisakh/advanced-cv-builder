@@ -2146,7 +2146,10 @@ with col_edit_area:
         safe_filename = full_name.replace(' ', '_') if full_name else "My"
 
         export_cv_data = dict(cv_data)
-        export_cv_data["sections_data"] = {**saved_sec, **export_sec}
+        #export_cv_data["sections_data"] = {**saved_sec, **export_sec}
+        # Make a clean copy so we never mutate the live form inputs in saved_sec
+        export_cv_data["sections_data"] = dict(saved_sec)
+
 
         # ------------------------------------------------------------------------
         # CV ANALYSIS & EXPORT OPTIONS
