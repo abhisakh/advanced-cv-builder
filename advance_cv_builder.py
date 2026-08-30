@@ -282,8 +282,10 @@ class TextFormatter:
         if not text:
             return ""
 
+        # Escape HTML special characters first (except basic formatting tags we introduce)
         text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
+        # Inline formatting
         text = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', text)       # **bold**
         text = re.sub(r'\*(.*?)\*', r'<em>\1</em>', text)                   # *italic*
         text = re.sub(r'__(.*?)__', r'<u>\1</u>', text)                     # __underline__
@@ -292,7 +294,34 @@ class TextFormatter:
         text = re.sub(r'~(.*?)~', r'<sub>\1</sub>', text)                   # ~subscript~
         text = re.sub(r'`(.*?)`', r'<code>\1</code>', text)                 # `code`
 
-        return text
+        # Handle lists (lines starting with * or -)
+        lines = text.split('\n')
+        processed_lines = []
+        in_list = False
+
+        for line in lines:
+            stripped = line.strip()
+            # Check if line is a bullet point
+            if re.match(r'^[\*\-]\s+', stripped):
+                bullet_content = re.sub(r'^[\*\-]\s+', '', stripped)
+                if not in_list:
+                    processed_lines.append('<ul>')
+                    in_list = True
+                processed_lines.append(f'<li>{bullet_content}</li>')
+            else:
+                if in_list:
+                    processed_lines.append('</ul>')
+                    in_list = False
+                # Handle regular line breaks
+                if stripped:
+                    processed_lines.append(f'{line}<br>')
+                else:
+                    processed_lines.append('<br>')
+
+        if in_list:
+            processed_lines.append('</ul>')
+
+        return "".join(processed_lines)
 
 # ============================================================================
 # CONFIGURATION & CONSTANTS
