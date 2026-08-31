@@ -19,6 +19,32 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ============================================================================
+# UTILITY FUNCTIONS FOR ITEM ID MANAGEMENT (FIXES REORDERING BUG)
+# ============================================================================
+
+def ensure_item_id(item: Dict) -> Dict:
+    """
+    Ensure each item has a unique ID that persists across reordering.
+    This fixes the Streamlit widget key issue where index-based keys cause
+    values to swap back after reordering.
+    """
+    if not isinstance(item, dict):
+        return {"_item_id": str(uuid.uuid4())[:8]}
+    if "_item_id" not in item:
+        item["_item_id"] = str(uuid.uuid4())[:8]
+    return item
+
+def ensure_list_ids(items: List[Dict]) -> List[Dict]:
+    """Ensure all items in a list have unique IDs"""
+    return [ensure_item_id(item) for item in items]
+
+def get_item_id(item: Dict, fallback_index: int = 0) -> str:
+    """Safely get item ID with fallback to index"""
+    if isinstance(item, dict):
+        return item.get("_item_id", str(fallback_index))
+    return str(fallback_index)
+
+# ============================================================================
 # LOCALIZATION DICTIONARIES (EN / DE)
 # ============================================================================
 TRANSLATIONS = {
@@ -394,6 +420,7 @@ CV_TEMPLATES = {
 
 DEFAULT_SECTIONS = [
     "Profiles & Links",
+    "Professional Summary",
     "Technical Skills",
     "Soft Skills",
     "Strengths",
@@ -938,8 +965,24 @@ with st.sidebar.expander(t("layout_control"), expanded=False):
         if s not in st.session_state.section_order:
             st.session_state.section_order.append(s)
 
-    st.caption("💡 Visibility is toggled inside each section in the main editor (👁️ Show this section in CV). This panel only controls column placement and order.")
+    st.caption("💡 Visibility is toggled inside each section in the main editor (👁️ Show this section in CV). This panel controls column placement and order.")
+
+    # Special placement control for Professional Summary
+    if "Professional Summary" in st.session_state.section_order:
+        st.write("**💼 Professional Summary Placement:**")
+        summary_placement = st.radio(
+            "Where should Professional Summary appear?",
+            ["Below Personal Info (Header)", "Main Column"],
+            index=0 if st.session_state.section_placement.get("Professional Summary", "Below Personal Info (Header)") == "Below Personal Info (Header)" else 1,
+            key="prof_summary_placement",
+            horizontal=True
+        )
+        st.session_state.section_placement["Professional Summary"] = summary_placement
+        st.divider()
+
     for sec in list(st.session_state.section_order):
+        if sec == "Professional Summary":  # Skip it, already handled above
+            continue
         c_vis, c_pos = st.columns([1, 1])
         with c_vis:
             is_vis = st.session_state.section_visibility.get(sec, True)
@@ -1205,6 +1248,14 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
             sec_html += f'<a href="{links["Portfolio"]}" target="_blank"><i class="fas fa-globe"></i> Portfolio</a>'
         sec_html += '</div></div>'
 
+    elif sec_name == "Professional Summary" and sections_data.get("Professional Summary"):
+        summary_data = sections_data["Professional Summary"]
+        summary_text = summary_data.get("text", "") if isinstance(summary_data, dict) else summary_data
+        if summary_text:
+            formatted_summary = TextFormatter.format_html_for_pdf(summary_text)
+            # NOTE: Professional Summary is special - it doesn't need a header label, just the content
+            sec_html += f'<div class="section professional-summary"><p>{formatted_summary}</p></div>'
+
     elif sec_name == "Technical Skills" and sections_data.get("Technical Skills"):
         sec_html += f'<div class="section"><h2>{t("tech_skills")}</h2>'
         for item in sections_data["Technical Skills"]:
@@ -1388,9 +1439,26 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
 
     main_html = ""
     sidebar_html = ""
+    professional_summary_html = ""  # Special handling for Professional Summary
 
     for sec in st.session_state.section_order:
         if st.session_state.section_visibility.get(sec, True):
+            # Special handling for Professional Summary based on placement
+            if sec == "Professional Summary":
+                placement = st.session_state.section_placement.get("Professional Summary", "Below Personal Info (Header)")
+                if placement == "Below Personal Info (Header)":
+                    # Render it specially for header placement
+                    rendered = render_single_section(
+                        sec,
+                        cv_data.get("sections_data", {}),
+                        layout_mode=layout_mode,
+                        custom_sections=cv_data.get("custom_sections", []),
+                        custom_section_types=cv_data.get("custom_section_types", {})
+                    )
+                    professional_summary_html = rendered  # Store separately
+                    continue  # Don't add to main_html
+                # If placement is "Main Column", fall through to normal handling
+
             rendered = render_single_section(
                 sec,
                 cv_data.get("sections_data", {}),
@@ -1413,7 +1481,11 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
 
     photo_html = f'<img src="{photo_b64}" class="profile-photo" />' if photo_b64 else ''
     meta_extra = f'<br/>{residency_str} | {relocation_str}' if (residency_str or relocation_str) else ''
-    summary_html = f'<div class="summary">{formatted_summary}</div>' if formatted_summary else ''
+
+    # Professional Summary placement
+    # If it's "Below Personal Info (Header)", it will be in professional_summary_html
+    # Otherwise, it's in main_html with other sections
+    header_summary_section = professional_summary_html if professional_summary_html else ""
 
     # Where the photo actually appears is driven by photo_settings["position"],
     # combined with the frame offsets (which crop/pan the image inside its
@@ -1478,6 +1550,8 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
         .entry-title {{ font-weight: bold; font-size: {body_size + 1}pt; color: #000; }}
         .entry-subtitle {{ font-size: {body_size - 1}pt; color: #666; }}
         .entry-meta {{ font-size: {body_size - 1}pt; color: #888; }}
+        .professional-summary {{ margin-top: 10px; margin-bottom: 15px; padding: 8px 0; font-size: {body_size}pt; line-height: {line_height}; color: #333; }}
+        .professional-summary p {{ margin: 0; }}
         ul {{ margin-left: 20px; margin-bottom: 8px; }}
         li {{ margin-bottom: 3px; }}
         code {{ background: #f4f4f4; padding: 2px 4px; border-radius: 3px; font-family: monospace; }}
@@ -1495,7 +1569,7 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
             </div>
             {photo_html}
         </div>
-        {summary_html}
+        {header_summary_section}
         <div class="layout-container">
             <div class="main-col">{main_html}</div>
             {side_col_html}
@@ -1580,6 +1654,25 @@ with col_edit_area:
 
             saved_sec["Profiles & Links"] = {"GitHub": github, "LinkedIn": linkedin, "Portfolio": portfolio}
 
+        # -------- PROFESSIONAL SUMMARY --------
+        with st.expander("💼 Professional Summary", expanded=True):
+            section_visibility_toggle("Professional Summary")
+            summary_text = saved_sec.get("Professional Summary", {}).get("text", "")
+            st.caption("📝 Use markdown formatting: **bold**, *italic*, `code`, ^superscript^, ~subscript~")
+            summary = st.text_area(
+                "Summary Text",
+                value=summary_text,
+                height=120,
+                placeholder="Write your professional summary here...",
+                help="Describe your professional background, skills, and career goals"
+            )
+
+            if summary and len(summary) < 50:
+                st.warning("⚠️ Summary is quite short. Consider adding more detail (50+ characters recommended).")
+
+            saved_sec["Professional Summary"] = {"text": summary}
+            export_sec["Professional Summary"] = summary if summary else None
+
         # -------- TECHNICAL SKILLS --------
         with st.expander(t("tech_skills")):
             section_visibility_toggle("Technical Skills")
@@ -1605,6 +1698,11 @@ with col_edit_area:
                     t_desc = st.text_input(t("description"), key=f"tech_desc_{uid}", value=item_data.get("description", ""))
                 t_keywords = st.text_area(t("keywords"), key=f"tech_keywords_{uid}", value=item_data.get("keywords", ""), height=60)
 
+                # CRITICAL FIX: Save current values to list BEFORE checking buttons
+                # This ensures that if a button is clicked and st.rerun() happens,
+                # the current unsaved changes are preserved in session state via the unique key
+                saved_tech[i] = {"_uid": uid, "name": t_name, "description": t_desc, "keywords": t_keywords}
+
                 bc1, bc2, _ = st.columns([1, 1, 4])
                 with bc1:
                     if i > 0 and st.button("⬆ Up", key=f"tech_up_{uid}"):
@@ -1617,7 +1715,6 @@ with col_edit_area:
                         saved_sec["Technical Skills"] = saved_tech
                         st.rerun()
 
-                saved_tech[i] = {"_uid": uid, "name": t_name, "description": t_desc, "keywords": t_keywords}
                 st.divider()
             saved_sec["Technical Skills"] = saved_tech
             export_sec["Technical Skills"] = export_items(saved_tech, lambda it: it.get("name") or it.get("keywords"))
@@ -1644,6 +1741,9 @@ with col_edit_area:
                     s_desc = st.text_input(t("description"), key=f"soft_desc_{uid}", value=item_data.get("description", ""))
                 s_keywords = st.text_area(t("keywords"), key=f"soft_keywords_{uid}", value=item_data.get("keywords", ""), height=60)
 
+                # CRITICAL FIX: Save current values to list BEFORE checking buttons
+                saved_soft[i] = {"_uid": uid, "name": s_name, "description": s_desc, "keywords": s_keywords}
+
                 bc1, bc2, _ = st.columns([1, 1, 4])
                 with bc1:
                     if i > 0 and st.button("⬆ Up", key=f"soft_up_{uid}"):
@@ -1656,7 +1756,6 @@ with col_edit_area:
                         saved_sec["Soft Skills"] = saved_soft
                         st.rerun()
 
-                saved_soft[i] = {"_uid": uid, "name": s_name, "description": s_desc, "keywords": s_keywords}
                 st.divider()
             saved_sec["Soft Skills"] = saved_soft
             export_sec["Soft Skills"] = export_items(saved_soft, lambda it: it.get("name") or it.get("keywords"))
@@ -1683,6 +1782,9 @@ with col_edit_area:
                     str_desc = st.text_input(t("description"), key=f"strength_desc_{uid}", value=item_data.get("description", ""))
                 str_keywords = st.text_area(t("keywords"), key=f"strength_keywords_{uid}", value=item_data.get("keywords", ""), height=60)
 
+                # CRITICAL FIX: Save current values to list BEFORE checking buttons
+                saved_str[i] = {"_uid": uid, "name": str_name, "description": str_desc, "keywords": str_keywords}
+
                 bc1, bc2, _ = st.columns([1, 1, 4])
                 with bc1:
                     if i > 0 and st.button("⬆ Up", key=f"str_up_{uid}"):
@@ -1695,7 +1797,6 @@ with col_edit_area:
                         saved_sec["Strengths"] = saved_str
                         st.rerun()
 
-                saved_str[i] = {"_uid": uid, "name": str_name, "description": str_desc, "keywords": str_keywords}
                 st.divider()
             saved_sec["Strengths"] = saved_str
             export_sec["Strengths"] = export_items(saved_str, lambda it: it.get("name") or it.get("keywords"))
@@ -1722,6 +1823,9 @@ with col_edit_area:
                     int_desc = st.text_input(t("description"), key=f"interest_desc_{uid}", value=item_data.get("description", ""))
                 int_keywords = st.text_area(t("keywords"), key=f"interest_keywords_{uid}", value=item_data.get("keywords", ""), height=60)
 
+                # CRITICAL FIX: Save current values to list BEFORE checking buttons
+                saved_int[i] = {"_uid": uid, "name": int_name, "description": int_desc, "keywords": int_keywords}
+
                 bc1, bc2, _ = st.columns([1, 1, 4])
                 with bc1:
                     if i > 0 and st.button("⬆ Up", key=f"int_up_{uid}"):
@@ -1733,8 +1837,6 @@ with col_edit_area:
                         saved_int[i], saved_int[i+1] = saved_int[i+1], saved_int[i]
                         saved_sec["Interests"] = saved_int
                         st.rerun()
-
-                saved_int[i] = {"_uid": uid, "name": int_name, "description": int_desc, "keywords": int_keywords}
                 st.divider()
             saved_sec["Interests"] = saved_int
             export_sec["Interests"] = export_items(saved_int, lambda it: it.get("name") or it.get("keywords"))
@@ -1927,6 +2029,14 @@ with col_edit_area:
                 bullets_input = st.text_area(t("achievements"), key=f"exp_bullets_{uid}", value="\n".join(bullets), height=80)
                 bullets_list = [b.strip() for b in bullets_input.split("\n") if b.strip()]
 
+                # CRITICAL FIX: Save current values to list BEFORE checking buttons
+                saved_exp[i] = {
+                    "_uid": uid, "company": company, "title": job_title, "date_range": date_range,
+                    "location": exp_location, "address": exp_address, "website": exp_website, "link_label": exp_link_label,
+                    "summary": exp_summary, "bullets": bullets_list,
+                    "bold_company": bold_company, "italic_company": italic_company, "company_size": company_size
+                }
+
                 bc1, bc2, _ = st.columns([1, 1, 4])
                 with bc1:
                     if i > 0 and st.button("⬆ Up", key=f"exp_up_{uid}"):
@@ -1939,12 +2049,6 @@ with col_edit_area:
                         saved_sec["Experience"] = saved_exp
                         st.rerun()
 
-                saved_exp[i] = {
-                    "_uid": uid, "company": company, "title": job_title, "date_range": date_range,
-                    "location": exp_location, "address": exp_address, "website": exp_website, "link_label": exp_link_label,
-                    "summary": exp_summary, "bullets": bullets_list,
-                    "bold_company": bold_company, "italic_company": italic_company, "company_size": company_size
-                }
                 st.divider()
             saved_sec["Experience"] = saved_exp
             export_sec["Experience"] = export_items(saved_exp, lambda it: it.get("company") or it.get("title") or it.get("summary") or it.get("bullets"))
@@ -2104,6 +2208,9 @@ with col_edit_area:
                     proj_link_label = st.text_input(t("link_label"), key=f"proj_link_label_{uid}", value=proj_data.get("link_label", t("view_project")))
                 proj_summary = st.text_area(t("summary"), key=f"proj_summary_{uid}", value=proj_data.get("summary", ""), height=60)
 
+                # CRITICAL FIX: Save current values to list BEFORE checking buttons
+                saved_proj[i] = {"_uid": uid, "name": proj_name, "description": proj_desc, "date_range": proj_date, "website": proj_website, "link_label": proj_link_label, "summary": proj_summary}
+
                 bc1, bc2, _ = st.columns([1, 1, 4])
                 with bc1:
                     if i > 0 and st.button("⬆ Up", key=f"proj_up_{uid}"):
@@ -2116,7 +2223,6 @@ with col_edit_area:
                         saved_sec["Projects"] = saved_proj
                         st.rerun()
 
-                saved_proj[i] = {"_uid": uid, "name": proj_name, "description": proj_desc, "date_range": proj_date, "website": proj_website, "link_label": proj_link_label, "summary": proj_summary}
                 st.divider()
             saved_sec["Projects"] = saved_proj
             export_sec["Projects"] = export_items(saved_proj, lambda it: it.get("name") or it.get("description"))
@@ -2126,7 +2232,6 @@ with col_edit_area:
             sec_type = st.session_state.custom_section_types.get(custom_sec, "Generic Text")
             saved_custom_val = saved_sec.get(custom_sec, [])
             with st.expander(f"📌 {custom_sec} ({sec_type})"):
-                section_visibility_toggle(custom_sec)
                 c_val = st.text_area(f"{custom_sec} Content", value=str(saved_custom_val) if isinstance(saved_custom_val, str) else "", key=f"custom_sec_{custom_sec}", height=100)
                 saved_sec[custom_sec] = c_val
 
