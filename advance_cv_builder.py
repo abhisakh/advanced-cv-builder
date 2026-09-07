@@ -1588,7 +1588,14 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
         f'<td class="header-info-cell"><div class="header-info">'
         f'<h1>{full_name}</h1>{title_html}{meta_html}{top_links_html}</div></td>'
     )
-    header_photo_cell = f'<td class="header-photo-cell">{photo_html}</td>' if photo_html else ''
+    # Explicit width (photo width + padding), not a %-based "shrink to fit" —
+    # xhtml2pdf's table solver takes percentage widths literally and will
+    # crash (negative available width) if real content doesn't fit inside it.
+    header_photo_cell_width_pt = round((photo_settings["width"] + 20) * 0.75)
+    header_photo_cell = (
+        f'<td class="header-photo-cell" style="width:{header_photo_cell_width_pt}pt;">{photo_html}</td>'
+        if photo_html else ''
+    )
     if photo_html and photo_on_left_in_header:
         header_row = header_photo_cell + header_info_cell
     else:
@@ -1619,7 +1626,7 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
         /* Header: table replaces the old flexbox row (title/meta | photo) */
         .header-table {{ width: 100%; border-bottom: 3px solid {primary_color}; padding-bottom: 15px; margin-bottom: 20px; }}
         .header-info-cell {{ vertical-align: top; }}
-        .header-photo-cell {{ vertical-align: top; text-align: right; width: 1%; white-space: nowrap; padding-left: 20px; }}
+        .header-photo-cell {{ vertical-align: top; text-align: right; padding-left: 20px; }}
         .header-info h1 {{ font-size: {heading_size + 6}pt; color: {primary_color}; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }}
         .header-info .title {{ font-size: {body_size + 2}pt; color: {accent_color}; font-weight: bold; margin-bottom: 5px; }}
         .header-info .meta {{ font-size: {body_size - 1}pt; color: #666; line-height: 1.5; }}
@@ -1638,8 +1645,8 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
 
         /* Entry header (title left, date/meta right): table replaces the old flexbox row */
         .entry-header-table {{ width: 100%; margin-bottom: 4px; }}
-        .eh-left {{ text-align: left; vertical-align: baseline; }}
-        .eh-right {{ text-align: right; vertical-align: baseline; white-space: nowrap; padding-left: 10px; }}
+        .eh-left {{ text-align: left; vertical-align: baseline; width: 68%; }}
+        .eh-right {{ text-align: right; vertical-align: baseline; padding-left: 10px; width: 32%; }}
         .entry-title {{ font-weight: bold; font-size: {body_size + 1}pt; color: #000; }}
         .entry-subtitle {{ font-size: {body_size - 1}pt; color: #666; }}
         .entry-meta {{ font-size: {body_size - 1}pt; color: #888; }}
