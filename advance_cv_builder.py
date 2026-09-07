@@ -1484,6 +1484,40 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
 
     return sec_html
 
+def analyze_main_column_load(cv_data: Dict, layout_mode: str) -> List[Dict]:
+    """
+    Estimates how much each *visible, Main-Column* section contributes to
+    page length. Sidebar content is deliberately excluded — it renders in a
+    narrow, fixed-width box and is almost never what pushes a CV to page 2;
+    the main column (Experience, Education, Projects...) is.
+
+    Returns a list of {"name", "chars"} for main-column sections, sorted by
+    size descending. In Single Column mode, every visible section counts as
+    "main column" since there's no sidebar to split into.
+    """
+    results = []
+    is_two_column = (layout_mode == "Two Columns")
+    for sec in st.session_state.section_order:
+        if not st.session_state.section_visibility.get(sec, True):
+            continue
+        placement = st.session_state.section_placement.get(sec, "Main Column")
+        if is_two_column and placement == "Sidebar":
+            continue  # sidebar content — not what we're measuring here
+
+        rendered = render_single_section(
+            sec,
+            cv_data.get("sections_data", {}),
+            layout_mode=layout_mode,
+            custom_sections=cv_data.get("custom_sections", []),
+            custom_section_types=cv_data.get("custom_section_types", {})
+        )
+        char_count = len(re.sub(r'<[^>]+>', '', rendered))
+        if char_count > 0:
+            results.append({"name": sec, "chars": char_count})
+
+    results.sort(key=lambda r: r["chars"], reverse=True)
+    return results
+
 def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct=32, sidebar_position="Right", layout_mode="Two Columns", primary_color=None, accent_color=None, font_family=None, heading_size=13, body_size=10, line_height=1.4, margin_size=12):
     formatted_summary = TextFormatter.format_html_for_pdf(cv_data.get("summary", ""))
     full_name = cv_data.get("full_name", "")
@@ -2444,17 +2478,32 @@ with col_edit_area:
                 page_count = None
 
             if page_count and page_count > 1:
-                st.warning(f"📄 Your CV is currently **{page_count} pages**. Things that push it over one page, roughly in order of impact:")
-                st.markdown(f"""
-- **Layout mode**: `{layout_mode}` — Two Columns fits noticeably more content per page than Single Column, since sections run side-by-side instead of stacking.
+                st.warning(f"📄 Your CV is currently **{page_count} pages**.")
+
+                main_load = analyze_main_column_load(export_cv_data, layout_mode)
+                total_main_chars = sum(r["chars"] for r in main_load) or 1
+
+                if main_load:
+                    st.markdown("**Main column content, biggest first** (sidebar excluded — it's fixed-width and rarely the cause):")
+                    for r in main_load:
+                        share = r["chars"] / total_main_chars
+                        st.markdown(f"- `{r['chars']:>5} chars` ({share:.0%}) — **{r['name']}**")
+                    top = main_load[0]
+                    st.markdown(f"👉 **{top['name']}** is your single biggest main-column section — trimming its bullets/summary will save more space than any font or margin tweak.")
+                else:
+                    st.markdown("No main-column sections detected — the overflow is likely coming from sidebar content or header/photo sizing instead.")
+
+                with st.expander("Other things that affect page count"):
+                    st.markdown(f"""
+- **Layout mode**: `{layout_mode}` — Two Columns fits more per page than Single Column, since sections run side-by-side instead of stacking.
 - **Margins**: `{margin_size}mm` — every 1mm off each side reclaims a small but real strip on every page.
-- **Body text size**: `{body_size}pt` / **Line height**: `{line_height}` — the biggest levers, since they multiply across every line of every bullet and summary.
-- **Content volume**: long bullet lists, a long Professional Summary, or many Experience/Education entries add up fast — trimming or hiding a lower-priority section (via the section visibility toggles above) often saves more space than any styling tweak.
-                """)
+- **Body text size**: `{body_size}pt` / **Line height**: `{line_height}` — multiply across every line, so they help, but only after content itself is trimmed.
+                    """)
+
                 if st.button("🗜️ Apply Compact One-Page Preset", use_container_width=True):
                     st.session_state["_apply_compact_preset"] = True
                     st.rerun()
-                st.caption("This sets margins/fonts to their most compact values and switches to Two Columns — it won't shorten your actual text, so if it's still over a page after this, the fix is trimming content.")
+                st.caption("This sets margins/fonts to their most compact values and switches to Two Columns — it won't shorten your actual text, so if it's still over a page after this, trim the section flagged above.")
             elif page_count == 1:
                 st.success("✅ Fits on one page.")
 
