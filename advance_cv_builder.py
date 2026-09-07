@@ -12,7 +12,8 @@ from datetime import datetime
 from io import BytesIO
 from typing import Dict, List, Any, cast
 import streamlit as st
-from weasyprint import HTML
+from xhtml2pdf import pisa
+from PIL import Image, ImageDraw
 from google import genai
 from dotenv import load_dotenv
 
@@ -372,6 +373,16 @@ class TextFormatter:
 
         return "".join(processed_lines)
 
+def entry_header_html(title_html: str, meta_html: str) -> str:
+    """Renders a title-left / meta-right row as a table.
+    Replaces the old `display:flex; justify-content:space-between` div,
+    which xhtml2pdf (our WeasyPrint-free PDF engine) cannot render."""
+    return (
+        '<table class="entry-header-table" cellpadding="0" cellspacing="0">'
+        f'<tr><td class="eh-left">{title_html}</td>'
+        f'<td class="eh-right">{meta_html}</td></tr></table>'
+    )
+
 # ============================================================================
 # CONFIGURATION & CONSTANTS
 # ============================================================================
@@ -505,6 +516,57 @@ def get_image_base64(uploaded_file):
         base64_encoded = base64.b64encode(bytes_data).decode("utf-8")
         return f"data:{uploaded_file.type};base64,{base64_encoded}"
     return None
+
+def prepare_photo_for_pdf(photo_data_uri: str, width: int, height: int, offset_x: int, offset_y: int, shape: str) -> str:
+    """
+    Turns the raw uploaded photo into a PNG that is ALREADY cropped to
+    (width, height) and, for 'Circular', already masked round.
+
+    We do this ourselves with Pillow instead of relying on CSS
+    object-fit / object-position / border-radius, because xhtml2pdf
+    (our WeasyPrint-free PDF engine) doesn't support those properties.
+    Baking the crop and the circular mask into the image itself means the
+    photo looks identical regardless of what the PDF engine's CSS support is.
+    """
+    if not photo_data_uri:
+        return ""
+    try:
+        header, b64data = photo_data_uri.split(",", 1)
+        img = Image.open(BytesIO(base64.b64decode(b64data))).convert("RGBA")
+
+        # "Cover" crop: scale so the image fully covers the target box,
+        # then crop around the offset_x/offset_y focal point (0-100%).
+        src_w, src_h = img.size
+        target_ratio = width / height
+        src_ratio = src_w / src_h
+        if src_ratio > target_ratio:
+            new_h = height
+            new_w = int(src_ratio * new_h)
+        else:
+            new_w = width
+            new_h = int(new_w / src_ratio)
+        img = img.resize((max(new_w, 1), max(new_h, 1)), Image.LANCZOS)
+
+        max_x = img.width - width
+        max_y = img.height - height
+        left = int(max_x * (offset_x / 100))
+        top = int(max_y * (offset_y / 100))
+        left = min(max(left, 0), max(max_x, 0))
+        top = min(max(top, 0), max(max_y, 0))
+        img = img.crop((left, top, left + width, top + height))
+
+        if shape == "Circular":
+            mask = Image.new("L", (width, height), 0)
+            ImageDraw.Draw(mask).ellipse((0, 0, width, height), fill=255)
+            img.putalpha(mask)
+
+        buf = BytesIO()
+        img.save(buf, format="PNG")
+        return f"data:image/png;base64,{base64.b64encode(buf.getvalue()).decode('utf-8')}"
+    except Exception:
+        # If anything goes wrong, fall back to the original, uncropped photo
+        # rather than dropping it entirely.
+        return photo_data_uri
 
 def ensure_item_ids(items: List[Dict]) -> None:
     for item in items:
@@ -1185,10 +1247,7 @@ def render_experience_items(exp_list):
         if title_html or sub_container or summary_html or bullets_html or link_html:
             sec_html += f'''
             <div class="entry">
-                <div class="entry-header">
-                    {title_html}
-                    {date_html}
-                </div>
+                {entry_header_html(title_html, date_html)}
                 {sub_container}
                 {link_html}
                 {summary_html}
@@ -1221,10 +1280,7 @@ def render_certification_items(cert_list):
         if title_html or issuer_html or date_html or summary_html or link_html:
             sec_html += f'''
             <div class="entry">
-                <div class="entry-header">
-                    {title_html}
-                    {date_html}
-                </div>
+                {entry_header_html(title_html, date_html)}
                 {issuer_html}
                 {link_html}
                 {summary_html}
@@ -1239,13 +1295,16 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
 
     if sec_name == "Profiles & Links" and sections_data.get("Profiles & Links"):
         links = sections_data["Profiles & Links"]
+        # NOTE: the old Font Awesome icons (<i class="fab fa-...">) came from
+        # an external CDN stylesheet. xhtml2pdf can't fetch/render that icon
+        # font, so these are now plain text links instead of icon + text.
         sec_html += f'<div class="section"><h2>{t("profiles_links")}</h2><div class="social-links">'
         if links.get("GitHub"):
-            sec_html += f'<a href="{links["GitHub"]}" target="_blank"><i class="fab fa-github"></i> GitHub</a>'
+            sec_html += f'<a href="{links["GitHub"]}" target="_blank">GitHub</a>'
         if links.get("LinkedIn"):
-            sec_html += f'<a href="{links["LinkedIn"]}" target="_blank"><i class="fab fa-linkedin"></i> LinkedIn</a>'
+            sec_html += f'<a href="{links["LinkedIn"]}" target="_blank">LinkedIn</a>'
         if links.get("Portfolio"):
-            sec_html += f'<a href="{links["Portfolio"]}" target="_blank"><i class="fas fa-globe"></i> Portfolio</a>'
+            sec_html += f'<a href="{links["Portfolio"]}" target="_blank">Portfolio</a>'
         sec_html += '</div></div>'
 
     elif sec_name == "Professional Summary" and sections_data.get("Professional Summary"):
@@ -1339,10 +1398,7 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
 
             sec_html += f'''
             <div class="entry">
-                <div class="entry-header">
-                    <span class="entry-title">{edu.get("degree", "")}</span>
-                    <span class="entry-meta">{edu.get("graduation", "")}</span>
-                </div>
+                {entry_header_html(f'<span class="entry-title">{edu.get("degree", "")}</span>', f'<span class="entry-meta">{edu.get("graduation", "")}</span>')}
                 {school_html}
                 {gpa_block}
                 {high_block}
@@ -1362,10 +1418,7 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
             link_block = f"<a href='{website}' target='_blank'>Website &rarr;</a>" if website else ""
             sec_html += f'''
             <div class="entry">
-                <div class="entry-header">
-                    <span class="entry-title">{name}</span>
-                    <span class="entry-meta">{date_range}</span>
-                </div>
+                {entry_header_html(f'<span class="entry-title">{name}</span>', f'<span class="entry-meta">{date_range}</span>')}
                 <div class="entry-subtitle">{desc}</div>
                 <p>{summary}</p>
                 {link_block}
@@ -1386,10 +1439,7 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
             link_block = f"<a href='{url}' target='_blank'>Website &rarr;</a>" if url else ""
             sec_html += f'''
             <div class="entry">
-                <div class="entry-header">
-                    <span class="entry-title">{title}</span>
-                    <span class="entry-meta">{date}</span>
-                </div>
+                {entry_header_html(f'<span class="entry-title">{title}</span>', f'<span class="entry-meta">{date}</span>')}
                 <div class="entry-subtitle">{awarder}</div>
                 {link_block}
             </div>
@@ -1477,9 +1527,20 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
 
     is_two_column = (layout_mode == "Two Columns")
     main_width_pct = 100 - sidebar_width_pct if is_two_column else 100
-    flex_direction = "row-reverse" if sidebar_position == "Left" else "row"
+    # Sidebar-on-left just means: swap which table cell comes first.
+    sidebar_first = (sidebar_position == "Left")
 
-    photo_html = f'<img src="{photo_b64}" class="profile-photo" />' if photo_b64 else ''
+    processed_photo_uri = (
+        prepare_photo_for_pdf(
+            photo_b64, photo_settings['width'], photo_settings['height'],
+            photo_settings['offset_x'], photo_settings['offset_y'], photo_settings.get('shape', 'Circular')
+        ) if photo_b64 else ""
+    )
+    photo_html = (
+        f'<img src="{processed_photo_uri}" class="profile-photo" '
+        f'width="{photo_settings["width"]}" height="{photo_settings["height"]}" />'
+        if processed_photo_uri else ''
+    )
     meta_extra = f'<br/>{residency_str} | {relocation_str}' if (residency_str or relocation_str) else ''
 
     # Professional Summary placement
@@ -1492,15 +1553,15 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
     # frame) — together these determine the photo's overall placement.
     photo_position = photo_settings.get("position", "Header Right")
     photo_in_sidebar = ""
-    header_class = "header"
+    photo_on_left_in_header = False
     if photo_html and photo_position == "Left Sidebar" and is_two_column and sidebar_html:
         # Sidebar exists: dock the photo at the top of it.
-        photo_in_sidebar = f'<div class="sidebar-photo">{photo_html}</div>'
+        photo_in_sidebar = f'<div class="sidebar-photo" style="text-align:center;">{photo_html}</div>'
         photo_html = ""
     elif photo_html and photo_position in ("Left Sidebar", "Header Left"):
         # No sidebar available (or "Header Left" explicitly chosen): put the
         # photo on the left side of the header instead.
-        header_class = "header header-photo-left"
+        photo_on_left_in_header = True
 
     side_col_html = f'<div class="side-col">{photo_in_sidebar}{sidebar_html}</div>' if (is_two_column and (sidebar_html or photo_in_sidebar)) else ''
 
@@ -1521,32 +1582,64 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
     if st.session_state.header_visibility.get("links", True) and cv_data.get("linkedin_url"):
         top_links_html = f'<div class="meta"><a href="{cv_data["linkedin_url"]}" target="_blank">LinkedIn Profile</a></div>'
 
+    # Header: a 2-cell table (info | photo), order swapped for "photo on the left".
+    # (Old version used CSS flexbox, which xhtml2pdf doesn't support.)
+    header_info_cell = (
+        f'<td class="header-info-cell"><div class="header-info">'
+        f'<h1>{full_name}</h1>{title_html}{meta_html}{top_links_html}</div></td>'
+    )
+    header_photo_cell = f'<td class="header-photo-cell">{photo_html}</td>' if photo_html else ''
+    if photo_html and photo_on_left_in_header:
+        header_row = header_photo_cell + header_info_cell
+    else:
+        header_row = header_info_cell + header_photo_cell
+    header_html = f'<table class="header-table"><tr>{header_row}</tr></table>'
+
+    # Main layout: a 2-cell table (main | sidebar) in Two Columns mode,
+    # a plain div in Single Column mode.
+    # (Old version used CSS flexbox with flex-direction row/row-reverse.)
+    if is_two_column and side_col_html:
+        main_cell = f'<td class="main-col" width="{main_width_pct}%">{main_html}</td>'
+        side_cell = f'<td class="side-col-cell" width="{sidebar_width_pct}%">{side_col_html}</td>'
+        cells = (side_cell + main_cell) if sidebar_first else (main_cell + side_cell)
+        layout_html = f'<table class="layout-table"><tr>{cells}</tr></table>'
+    else:
+        layout_html = f'<div class="main-col">{main_html}</div>'
+
     html = f"""
     <!DOCTYPE html>
     <html>
     <head>
     <meta charset="UTF-8">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        * {{ margin: 0; padding: 0; }}
         @page {{ size: A4 portrait; margin: {margin_size}mm; }}
         body {{ font-family: '{font_family}', sans-serif; color: #333333; line-height: {line_height}; font-size: {body_size}pt; background: white; }}
-        .header {{ border-bottom: 3px solid {primary_color}; padding-bottom: 15px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; }}
-        .header-photo-left {{ flex-direction: row-reverse; }}
-        .header-info {{ flex: 1; }}
+
+        /* Header: table replaces the old flexbox row (title/meta | photo) */
+        .header-table {{ width: 100%; border-bottom: 3px solid {primary_color}; padding-bottom: 15px; margin-bottom: 20px; }}
+        .header-info-cell {{ vertical-align: top; }}
+        .header-photo-cell {{ vertical-align: top; text-align: right; width: 1%; white-space: nowrap; padding-left: 20px; }}
         .header-info h1 {{ font-size: {heading_size + 6}pt; color: {primary_color}; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }}
         .header-info .title {{ font-size: {body_size + 2}pt; color: {accent_color}; font-weight: bold; margin-bottom: 5px; }}
         .header-info .meta {{ font-size: {body_size - 1}pt; color: #666; line-height: 1.5; }}
-        .profile-photo {{ width: {photo_settings['width']}px; height: {photo_settings['height']}px; object-fit: cover; object-position: {photo_settings['offset_x']}% {photo_settings['offset_y']}%; border: 2px solid {primary_color}; border-radius: {photo_settings['border_radius']}; flex-shrink: 0; }}
-        .sidebar-photo {{ display: flex; justify-content: center; margin-bottom: 14px; }}
+        .profile-photo {{ border: 2px solid {primary_color}; }}
         .summary {{ font-size: {body_size}pt; margin-bottom: 20px; line-height: 1.6; color: #333; }}
-        .layout-container {{ display: flex; flex-direction: {flex_direction}; gap: 20px; width: 100%; }}
-        .main-col {{ width: {main_width_pct}%; }}
-        .side-col {{ width: {sidebar_width_pct}%; background-color: {template_config["sidebar_bg"]}; padding: 12px; border-radius: 6px; }}
+
+        /* Main/sidebar layout: table replaces the old flexbox row */
+        .layout-table {{ width: 100%; }}
+        .main-col {{ vertical-align: top; }}
+        .side-col-cell {{ vertical-align: top; }}
+        .side-col {{ background-color: {template_config["sidebar_bg"]}; padding: 12px; }}
+
         .section {{ margin-bottom: 20px; page-break-inside: avoid; }}
         .section h2 {{ font-size: {heading_size}pt; color: {primary_color}; border-bottom: 2px solid {accent_color}; padding-bottom: 4px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }}
         .entry {{ margin-bottom: 12px; }}
-        .entry-header {{ display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }}
+
+        /* Entry header (title left, date/meta right): table replaces the old flexbox row */
+        .entry-header-table {{ width: 100%; margin-bottom: 4px; }}
+        .eh-left {{ text-align: left; vertical-align: baseline; }}
+        .eh-right {{ text-align: right; vertical-align: baseline; white-space: nowrap; padding-left: 10px; }}
         .entry-title {{ font-weight: bold; font-size: {body_size + 1}pt; color: #000; }}
         .entry-subtitle {{ font-size: {body_size - 1}pt; color: #666; }}
         .entry-meta {{ font-size: {body_size - 1}pt; color: #888; }}
@@ -1554,26 +1647,16 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
         .professional-summary p {{ margin: 0; }}
         ul {{ margin-left: 20px; margin-bottom: 8px; }}
         li {{ margin-bottom: 3px; }}
-        code {{ background: #f4f4f4; padding: 2px 4px; border-radius: 3px; font-family: monospace; }}
-        .social-links {{ display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; font-size: {body_size}pt; }}
-        .social-links a {{ color: {primary_color}; text-decoration: none; }}
+        code {{ background: #f4f4f4; padding: 2px 4px; font-family: monospace; }}
+
+        /* Social links: stacked block links replace the old flex column */
+        .social-links a {{ display: block; margin-bottom: 6px; font-size: {body_size}pt; color: {primary_color}; text-decoration: none; }}
     </style>
     </head>
     <body>
-        <div class="{header_class}">
-            <div class="header-info">
-                <h1>{full_name}</h1>
-                {title_html}
-                {meta_html}
-                {top_links_html}
-            </div>
-            {photo_html}
-        </div>
+        {header_html}
         {header_summary_section}
-        <div class="layout-container">
-            <div class="main-col">{main_html}</div>
-            {side_col_html}
-        </div>
+        {layout_html}
     </body>
     </html>
     """
@@ -2326,7 +2409,11 @@ with col_edit_area:
                 font_family=font_family, heading_size=heading_size, body_size=body_size,
                 line_height=line_height, margin_size=margin_size
             )
-            pdf_bytes = HTML(string=rendered_html).write_pdf() or b""
+            pdf_buffer = BytesIO()
+            pisa_status = pisa.CreatePDF(src=rendered_html, dest=pdf_buffer, encoding="UTF-8")
+            pdf_bytes = b"" if pisa_status.err else pdf_buffer.getvalue()
+            if pisa_status.err:
+                st.error("⚠️ PDF generation failed — check the console/logs for xhtml2pdf errors.")
 
         download_choice = st.radio("Select data type to download:", ["Preview Data", "Saved Data"], horizontal=True)
         target_json_data = export_cv_data if download_choice == "Preview Data" else st.session_state.get("saved_version_data", export_cv_data)
