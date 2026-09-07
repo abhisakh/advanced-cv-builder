@@ -989,13 +989,13 @@ with st.sidebar.expander(t("template_styling"), expanded=True):
     with col_font:
         font_family = st.selectbox(t("font_family"), ["Helvetica", "Arial", "Georgia", "Times New Roman"])
     with col_size:
-        heading_size = st.slider(t("heading_size"), 10, 16, 13)
+        heading_size = st.slider(t("heading_size"), 10, 16, 13, key="heading_size_slider")
 
-    body_size = st.slider(t("body_size"), 9, 12, 10)
-    line_height = st.slider(t("line_height"), 1.2, 1.8, 1.4, 0.1)
-    margin_size = st.slider(t("margin_size"), 8, 20, 12)
+    body_size = st.slider(t("body_size"), 9, 12, 10, key="body_size_slider")
+    line_height = st.slider(t("line_height"), 1.2, 1.8, 1.4, 0.1, key="line_height_slider")
+    margin_size = st.slider(t("margin_size"), 8, 20, 12, key="margin_size_slider")
 
-    layout_mode = st.radio(t("layout_mode"), [t("two_columns"), t("single_column")])
+    layout_mode = st.radio(t("layout_mode"), [t("two_columns"), t("single_column")], key="layout_mode_radio")
     layout_mode = "Two Columns" if layout_mode == t("two_columns") else "Single Column"
 
 with st.sidebar.expander("👁️ Top Header Visibility Controls", expanded=False):
@@ -2421,6 +2421,35 @@ with col_edit_area:
             pdf_bytes = b"" if pisa_status.err else pdf_buffer.getvalue()
             if pisa_status.err:
                 st.error("⚠️ PDF generation failed — check the console/logs for xhtml2pdf errors.")
+
+        # -------- ONE-PAGE FEEDBACK --------
+        # pymupdf already ships with this app (used for the preview), so we
+        # can report the real, exact page count rather than guessing.
+        if pdf_bytes:
+            try:
+                _doc = pymupdf.open(stream=pdf_bytes, filetype="pdf")
+                page_count = len(_doc)
+            except Exception:
+                page_count = None
+
+            if page_count and page_count > 1:
+                st.warning(f"📄 Your CV is currently **{page_count} pages**. Things that push it over one page, roughly in order of impact:")
+                st.markdown(f"""
+- **Layout mode**: `{layout_mode}` — Two Columns fits noticeably more content per page than Single Column, since sections run side-by-side instead of stacking.
+- **Margins**: `{margin_size}mm` — every 1mm off each side reclaims a small but real strip on every page.
+- **Body text size**: `{body_size}pt` / **Line height**: `{line_height}` — the biggest levers, since they multiply across every line of every bullet and summary.
+- **Content volume**: long bullet lists, a long Professional Summary, or many Experience/Education entries add up fast — trimming or hiding a lower-priority section (via the section visibility toggles above) often saves more space than any styling tweak.
+                """)
+                if st.button("🗜️ Apply Compact One-Page Preset", use_container_width=True):
+                    st.session_state["heading_size_slider"] = 11
+                    st.session_state["body_size_slider"] = 9
+                    st.session_state["line_height_slider"] = 1.2
+                    st.session_state["margin_size_slider"] = 8
+                    st.session_state["layout_mode_radio"] = t("two_columns")
+                    st.rerun()
+                st.caption("This sets margins/fonts to their most compact values and switches to Two Columns — it won't shorten your actual text, so if it's still over a page after this, the fix is trimming content.")
+            elif page_count == 1:
+                st.success("✅ Fits on one page.")
 
         download_choice = st.radio("Select data type to download:", ["Preview Data", "Saved Data"], horizontal=True)
         target_json_data = export_cv_data if download_choice == "Preview Data" else st.session_state.get("saved_version_data", export_cv_data)
