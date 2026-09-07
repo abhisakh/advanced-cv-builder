@@ -872,6 +872,17 @@ if "photo_data" not in st.session_state:
         "offset_y": 50,
     }))
 
+# Apply a pending "compact one-page preset" (queued by a button further down
+# the script) BEFORE the affected sliders/radio are instantiated below —
+# Streamlit forbids writing to a widget's session_state key after that
+# widget has already been created in the same run.
+if st.session_state.pop("_apply_compact_preset", False):
+    st.session_state["heading_size_slider"] = 11
+    st.session_state["body_size_slider"] = 9
+    st.session_state["line_height_slider"] = 1.2
+    st.session_state["margin_size_slider"] = 8
+    st.session_state["layout_mode_radio"] = t("two_columns")
+
 # ============================================================================
 # SIDEBAR - LANGUAGE SWITCHER & PROFILE MANAGEMENT
 # ============================================================================
@@ -2441,11 +2452,7 @@ with col_edit_area:
 - **Content volume**: long bullet lists, a long Professional Summary, or many Experience/Education entries add up fast — trimming or hiding a lower-priority section (via the section visibility toggles above) often saves more space than any styling tweak.
                 """)
                 if st.button("🗜️ Apply Compact One-Page Preset", use_container_width=True):
-                    st.session_state["heading_size_slider"] = 11
-                    st.session_state["body_size_slider"] = 9
-                    st.session_state["line_height_slider"] = 1.2
-                    st.session_state["margin_size_slider"] = 8
-                    st.session_state["layout_mode_radio"] = t("two_columns")
+                    st.session_state["_apply_compact_preset"] = True
                     st.rerun()
                 st.caption("This sets margins/fonts to their most compact values and switches to Two Columns — it won't shorten your actual text, so if it's still over a page after this, the fix is trimming content.")
             elif page_count == 1:
