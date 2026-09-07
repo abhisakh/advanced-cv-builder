@@ -994,6 +994,8 @@ with st.sidebar.expander(t("template_styling"), expanded=True):
     with col_accent:
         accent_color = st.color_picker(t("accent_color"), template_config["accent"])
 
+    main_col_bg = st.color_picker("Main Column Background Color", "#FFFFFF")
+
     st.subheader(t("typography"))
     col_font, col_size = st.columns(2)
 
@@ -1026,10 +1028,12 @@ with st.sidebar.expander(t("layout_control"), expanded=False):
         sidebar_position = "Left" if sidebar_position == t("left") else "Right"
         sidebar_width_pct = st.slider(t("sidebar_width"), 20, 50, 32)
         main_width_pct = 100 - sidebar_width_pct
+        column_gap_px = st.slider("Column Gap (px)", 0, 40, 20)
     else:
         sidebar_position = "Right"
         sidebar_width_pct = 0
         main_width_pct = 100
+        column_gap_px = 0
 
     available_sections = list(dict.fromkeys(DEFAULT_SECTIONS + st.session_state.custom_sections))
 
@@ -1518,7 +1522,7 @@ def analyze_main_column_load(cv_data: Dict, layout_mode: str) -> List[Dict]:
     results.sort(key=lambda r: r["chars"], reverse=True)
     return results
 
-def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct=32, sidebar_position="Right", layout_mode="Two Columns", primary_color=None, accent_color=None, font_family=None, heading_size=13, body_size=10, line_height=1.4, margin_size=12):
+def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct=32, sidebar_position="Right", layout_mode="Two Columns", primary_color=None, accent_color=None, font_family=None, heading_size=13, body_size=10, line_height=1.4, margin_size=12, main_col_bg="#FFFFFF", column_gap_px=20):
     formatted_summary = TextFormatter.format_html_for_pdf(cv_data.get("summary", ""))
     full_name = cv_data.get("full_name", "")
     title_str = cv_data.get("title", "")
@@ -1647,13 +1651,24 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
         header_row = header_info_cell + header_photo_cell
     header_html = f'<table class="header-table"><tr>{header_row}</tr></table>'
 
-    # Main layout: a 2-cell table (main | sidebar) in Two Columns mode,
-    # a plain div in Single Column mode.
-    # (Old version used CSS flexbox with flex-direction row/row-reverse.)
+    # Main/sidebar layout: a 3-cell table (main | gap | sidebar) in Two
+    # Columns mode, a plain div in Single Column mode.
+    # (Old version used CSS flexbox with flex-direction row/row-reverse and
+    # a `gap` property — neither of which xhtml2pdf's table engine has, so
+    # we compute real point widths, including a real empty spacer column
+    # for the gap, from the actual page content width.)
     if is_two_column and side_col_html:
-        main_cell = f'<td class="main-col" width="{main_width_pct}%">{main_html}</td>'
-        side_cell = f'<td class="side-col-cell" width="{sidebar_width_pct}%">{side_col_html}</td>'
-        cells = (side_cell + main_cell) if sidebar_first else (main_cell + side_cell)
+        a4_width_mm = 210
+        content_width_pt = (a4_width_mm - 2 * margin_size) * 2.83465
+        gap_pt = max(column_gap_px, 0) * 0.75
+        cols_pt = max(content_width_pt - gap_pt, 0)
+        main_pt = round(cols_pt * (main_width_pct / 100))
+        side_pt = round(cols_pt * (sidebar_width_pct / 100))
+
+        main_cell = f'<td class="main-col" style="width:{main_pt}pt;">{main_html}</td>'
+        gap_cell = f'<td class="gap-col" style="width:{round(gap_pt)}pt;"></td>' if gap_pt > 0 else ''
+        side_cell = f'<td class="side-col-cell" style="width:{side_pt}pt;">{side_col_html}</td>'
+        cells = (side_cell + gap_cell + main_cell) if sidebar_first else (main_cell + gap_cell + side_cell)
         layout_html = f'<table class="layout-table"><tr>{cells}</tr></table>'
     else:
         layout_html = f'<div class="main-col">{main_html}</div>'
@@ -1679,8 +1694,9 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
         .summary {{ font-size: {body_size}pt; margin-bottom: 20px; line-height: 1.6; color: #333; }}
 
         /* Main/sidebar layout: table replaces the old flexbox row */
-        .layout-table {{ width: 100%; }}
-        .main-col {{ vertical-align: top; }}
+        .layout-table {{ }}
+        .main-col {{ vertical-align: top; background-color: {main_col_bg}; padding: 12px; }}
+        .gap-col {{ }}
         .side-col-cell {{ vertical-align: top; }}
         .side-col {{ background-color: {template_config["sidebar_bg"]}; padding: 12px; }}
 
@@ -2459,7 +2475,8 @@ with col_edit_area:
                 sidebar_position=sidebar_position if layout_mode == "Two Columns" else "Right",
                 layout_mode=layout_mode, primary_color=primary_color, accent_color=accent_color,
                 font_family=font_family, heading_size=heading_size, body_size=body_size,
-                line_height=line_height, margin_size=margin_size
+                line_height=line_height, margin_size=margin_size,
+                main_col_bg=main_col_bg, column_gap_px=column_gap_px
             )
             pdf_buffer = BytesIO()
             pisa_status = pisa.CreatePDF(src=rendered_html, dest=pdf_buffer, encoding="UTF-8")
