@@ -1699,8 +1699,8 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
         .layout-table {{ }}
         .main-col {{ vertical-align: top; background-color: {main_col_bg}; padding: 12px; }}
         .gap-col {{ }}
-        .side-col-cell {{ vertical-align: top; }}
-        .side-col {{ background-color: {side_col_bg}; padding: 12px; }}
+        .side-col-cell {{ vertical-align: top; background-color: {side_col_bg}; padding: 12px; }}
+        .side-col {{ }}
 
         .section {{ margin-bottom: 20px; page-break-inside: avoid; }}
         .section h2 {{ font-size: {heading_size}pt; color: {primary_color}; border-bottom: 2px solid {accent_color}; padding-bottom: 4px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }}
