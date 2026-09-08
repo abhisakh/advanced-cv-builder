@@ -383,6 +383,23 @@ def entry_header_html(title_html: str, meta_html: str) -> str:
         f'<td class="eh-right">{meta_html}</td></tr></table>'
     )
 
+def fix_entry_spacing(section_html: str) -> str:
+    """
+    Inserts a real spacer block between consecutive `.entry` divs.
+
+    `.entry { margin-bottom: 12px }` looked correct in CSS but measured out
+    to ~3pt in the actual PDF instead of ~9pt — xhtml2pdf doesn't reliably
+    apply margin-bottom on a div whose content starts with a <table> (the
+    entry-header-table), which is exactly what every .entry starts with.
+    A spacer div with real (non-breaking-space) content sidesteps that
+    entirely, since occupied text height isn't subject to the same
+    margin/padding quirks we've hit before. Only fires *between* entries
+    (the regex requires a following entry), never after the last one —
+    the section's own margin-bottom already handles that gap correctly.
+    """
+    spacer = '<div class="entry-spacer">&nbsp;</div>'
+    return re.sub(r'(</div>\s*)(<div class="entry">)', rf'\1{spacer}\2', section_html)
+
 # ============================================================================
 # CONFIGURATION & CONSTANTS
 # ============================================================================
@@ -1270,7 +1287,7 @@ def render_experience_items(exp_list):
                 {bullets_html}
             </div>
             '''
-    return sec_html
+    return fix_entry_spacing(sec_html)
 
 def render_certification_items(cert_list):
     sec_html = ""
@@ -1302,7 +1319,7 @@ def render_certification_items(cert_list):
                 {summary_html}
             </div>
             '''
-    return sec_html
+    return fix_entry_spacing(sec_html)
 
 def render_single_section(sec_name, sections_data, layout_mode="Two Columns", custom_sections=None, custom_section_types=None):
     sec_html = ""
@@ -1487,7 +1504,7 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
             sec_html += f'<p>{formatted_custom}</p>'
         sec_html += '</div>'
 
-    return sec_html
+    return fix_entry_spacing(sec_html)
 
 def analyze_main_column_load(cv_data: Dict, layout_mode: str) -> List[Dict]:
     """
@@ -1705,6 +1722,7 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
         .section {{ margin-bottom: 20px; page-break-inside: avoid; }}
         .section h2 {{ font-size: {heading_size}pt; color: {primary_color}; border-bottom: 2px solid {accent_color}; padding-bottom: 4px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }}
         .entry {{ margin-bottom: 12px; }}
+        .entry-spacer {{ font-size: 1pt; line-height: 12px; margin: 0; padding: 0; }}
 
         /* Entry header (title left, date/meta right): table replaces the old flexbox row */
         .entry-header-table {{ width: 100%; margin-bottom: 4px; }}
