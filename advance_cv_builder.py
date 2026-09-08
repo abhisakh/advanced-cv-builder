@@ -1293,7 +1293,18 @@ def render_experience_items(exp_list):
                 {bullets_html}
             </div>
             '''
-    return fix_entry_spacing(sec_html)
+    # NOTE: fix_entry_spacing is intentionally NOT called here. Every call
+    # site of this function is inside render_single_section, which applies
+    # fix_entry_spacing exactly once to its own full output (which already
+    # includes this return value). Calling it here too double-processed the
+    # same content — the spacer div's own closing </div> sits right before
+    # the next <div class="entry">, which is exactly what the regex matches,
+    # so the second pass matched the first pass's spacer and inserted a
+    # second one. That's what made Experience/Work Experience/Certifications
+    # end up with double the gap of Education (which builds its entries
+    # directly inside render_single_section and only ever gets processed
+    # once).
+    return sec_html
 
 def render_certification_items(cert_list):
     sec_html = ""
@@ -1325,7 +1336,9 @@ def render_certification_items(cert_list):
                 {summary_html}
             </div>
             '''
-    return fix_entry_spacing(sec_html)
+    # See the matching note in render_experience_items — fix_entry_spacing
+    # is applied once, by render_single_section, not here.
+    return sec_html
 
 def render_single_section(sec_name, sections_data, layout_mode="Two Columns", custom_sections=None, custom_section_types=None, section_margin_pt=14):
     sec_html = ""
