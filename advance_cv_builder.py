@@ -1555,6 +1555,13 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
     font_family = font_family or template_config["font"]
     side_col_bg = side_col_bg or template_config["sidebar_bg"]
 
+    # Height of one "line" at the current typography settings (body_size x
+    # line_height — the same values driving the main column's own text).
+    # Used for entry-to-entry spacing so it scales with the compact preset
+    # instead of a fixed 12px, and applies identically to every entry
+    # regardless of which column it ends up in.
+    entry_spacer_pt = round(body_size * line_height, 2)
+
     main_html = ""
     sidebar_html = ""
     professional_summary_html = ""  # Special handling for Professional Summary
@@ -1722,7 +1729,7 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
         .section {{ margin-bottom: 20px; page-break-inside: avoid; }}
         .section h2 {{ font-size: {heading_size}pt; color: {primary_color}; border-bottom: 2px solid {accent_color}; padding-bottom: 4px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }}
         .entry {{ margin-bottom: 12px; }}
-        .entry-spacer {{ font-size: 1pt; line-height: 12px; margin: 0; padding: 0; }}
+        .entry-spacer {{ font-size: 1pt; line-height: {entry_spacer_pt}pt; margin: 0; padding: 0; }}
 
         /* Entry header (title left, date/meta right): table replaces the old flexbox row */
         .entry-header-table {{ width: 100%; margin-bottom: 4px; }}
