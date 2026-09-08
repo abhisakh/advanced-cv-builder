@@ -385,20 +385,10 @@ def entry_header_html(title_html: str, meta_html: str) -> str:
 
 def fix_entry_spacing(section_html: str) -> str:
     """
-    Inserts a real spacer block between consecutive `.entry` divs.
-
-    `.entry { margin-bottom: 12px }` looked correct in CSS but measured out
-    to ~3pt in the actual PDF instead of ~9pt — xhtml2pdf doesn't reliably
-    apply margin-bottom on a div whose content starts with a <table> (the
-    entry-header-table), which is exactly what every .entry starts with.
-    A spacer div with real (non-breaking-space) content sidesteps that
-    entirely, since occupied text height isn't subject to the same
-    margin/padding quirks we've hit before. Only fires *between* entries
-    (the regex requires a following entry), never after the last one —
-    the section's own margin-bottom already handles that gap correctly.
+    Disabled: With minimal spacing model (margin-bottom: 0pt on .entry),
+    no extra spacers are needed. All spacing is controlled by line_height only.
     """
-    spacer = '<div class="entry-spacer">&nbsp;</div>'
-    return re.sub(r'(</div>\s*)(<div class="entry">)', rf'\1{spacer}\2', section_html)
+    return section_html
 
 # ============================================================================
 # CONFIGURATION & CONSTANTS
@@ -1346,7 +1336,7 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
         if summary_text:
             formatted_summary = TextFormatter.format_html_for_pdf(summary_text)
             # NOTE: Professional Summary is special - it doesn't need a header label, just the content
-            sec_html += f'<div class="section professional-summary"><p>{formatted_summary}</p></div>'
+            sec_html += f'<div class="section professional-summary"><div>{formatted_summary}</div></div>'
 
     elif sec_name == "Technical Skills" and sections_data.get("Technical Skills"):
         sec_html += f'<div class="section"><h2>{t("tech_skills")}</h2>'
@@ -1358,7 +1348,7 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
             <div class="entry">
                 <div class="entry-title">{name}</div>
                 <div class="entry-subtitle">{desc}</div>
-                <p style="font-size: 9pt; color: #555;">{kw}</p>
+                <div class="entry-keywords">{kw}</div>
             </div>
             '''
         sec_html += '</div>'
@@ -1373,7 +1363,7 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
             <div class="entry">
                 <div class="entry-title">{name}</div>
                 <div class="entry-subtitle">{desc}</div>
-                <p style="font-size: 9pt; color: #555;">{kw}</p>
+                <div class="entry-keywords">{kw}</div>
             </div>
             '''
         sec_html += '</div>'
@@ -1388,7 +1378,7 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
             <div class="entry">
                 <div class="entry-title">{name}</div>
                 <div class="entry-subtitle">{desc}</div>
-                <p style="font-size: 9pt; color: #555;">{kw}</p>
+                <div class="entry-keywords">{kw}</div>
             </div>
             '''
         sec_html += '</div>'
@@ -1403,7 +1393,7 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
             <div class="entry">
                 <div class="entry-title">{name}</div>
                 <div class="entry-subtitle">{desc}</div>
-                <p style="font-size: 9pt; color: #555;">{kw}</p>
+                <div class="entry-keywords">{kw}</div>
             </div>
             '''
         sec_html += '</div>'
@@ -1419,7 +1409,7 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
         for edu in sections_data["Education"]:
             formatted_highlights = TextFormatter.format_html_for_pdf(edu.get("highlights", ""))
             gpa_block = f"<div class='entry-meta'>GPA: {edu.get('gpa', '')}</div>" if edu.get("gpa") else ""
-            high_block = f"<p>{formatted_highlights}</p>" if formatted_highlights else ""
+            high_block = f"<div>{formatted_highlights}</div>" if formatted_highlights else ""
 
             sch_bold = "font-weight: bold;" if edu.get("bold_school", False) else ""
             sch_italic = "font-style: italic;" if edu.get("italic_school", False) else ""
@@ -1453,7 +1443,7 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
             <div class="entry">
                 {entry_header_html(f'<span class="entry-title">{name}</span>', f'<span class="entry-meta">{date_range}</span>')}
                 <div class="entry-subtitle">{desc}</div>
-                <p>{summary}</p>
+                <div>{summary}</div>
                 {link_block}
             </div>
             '''
@@ -1761,6 +1751,7 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
         .entry-title {{ font-weight: bold; font-size: {body_size + 1}pt; color: #000; }}
         .entry-subtitle {{ font-size: {body_size - 1}pt; color: #666; }}
         .entry-meta {{ font-size: {body_size - 1}pt; color: #888; }}
+        .entry-keywords {{ font-size: 9pt; color: #555; margin: 0; padding: 0; }}
         .professional-summary {{ margin-top: 0pt; margin-bottom: {section_margin_pt}pt; padding: 0pt; font-size: {body_size}pt; line-height: {line_height}; color: #333; }}
         .professional-summary p {{ margin: 0; }}
         ul {{ margin-left: 20px; margin-bottom: 0pt; }}
