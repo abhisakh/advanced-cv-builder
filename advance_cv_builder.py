@@ -1719,6 +1719,9 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
         @page {{ size: A4 portrait; margin: {margin_size}mm; }}
         body {{ font-family: '{font_family}', sans-serif; color: #333333; line-height: {line_height}; font-size: {body_size}pt; background: white; }}
 
+        /* Prevent xhtml2pdf default margins on all content elements */
+        div, p, h1, h2, h3, h4, h5, h6, ul, ol, li, table, tr, td {{ margin: 0; padding: 0; }}
+
         /* Header: minimal spacing */
         .header-table {{ width: 100%; border-bottom: 3px solid {primary_color}; padding-bottom: 0pt; margin-bottom: {section_margin_pt}pt; }}
         .header-info-cell {{ vertical-align: top; }}
@@ -1754,8 +1757,8 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
         .entry-keywords {{ font-size: 9pt; color: #555; margin: 0; padding: 0; }}
         .professional-summary {{ margin-top: 0pt; margin-bottom: {section_margin_pt}pt; padding: 0pt; font-size: {body_size}pt; line-height: {line_height}; color: #333; }}
         .professional-summary p {{ margin: 0; }}
-        ul {{ margin-left: 20px; margin-bottom: 0pt; }}
-        li {{ margin-bottom: 0pt; }}
+        ul {{ margin-left: 20px; margin-top: 0pt; margin-bottom: 0pt; }}
+        li {{ margin-bottom: 0pt; margin-top: 0pt; line-height: {line_height}; }}
         code {{ background: #f4f4f4; padding: 2px 4px; font-family: monospace; }}
 
         /* Social links: no extra margins */
