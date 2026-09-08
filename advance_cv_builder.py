@@ -1636,7 +1636,7 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
     # Header: a 2-cell table (info | photo), order swapped for "photo on the left".
     # (Old version used CSS flexbox, which xhtml2pdf doesn't support.)
     header_info_cell = (
-        f'<td class="header-info-cell"><div class="header-info">'
+        f'<td class="header-info-cell" valign="top"><div class="header-info">'
         f'<h1>{full_name}</h1>{title_html}{meta_html}{top_links_html}</div></td>'
     )
     # Explicit width (photo width + padding), not a %-based "shrink to fit" —
@@ -1644,7 +1644,7 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
     # crash (negative available width) if real content doesn't fit inside it.
     header_photo_cell_width_pt = round((photo_settings["width"] + 20) * 0.75)
     header_photo_cell = (
-        f'<td class="header-photo-cell" style="width:{header_photo_cell_width_pt}pt;">{photo_html}</td>'
+        f'<td class="header-photo-cell" valign="top" style="width:{header_photo_cell_width_pt}pt;">{photo_html}</td>'
         if photo_html else ''
     )
     if photo_html and photo_on_left_in_header:
@@ -1667,9 +1667,9 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
         main_pt = round(cols_pt * (main_width_pct / 100))
         side_pt = round(cols_pt * (sidebar_width_pct / 100))
 
-        main_cell = f'<td class="main-col" style="width:{main_pt}pt;">{main_html}</td>'
-        gap_cell = f'<td class="gap-col" style="width:{round(gap_pt)}pt;"></td>' if gap_pt > 0 else ''
-        side_cell = f'<td class="side-col-cell" style="width:{side_pt}pt;">{side_col_html}</td>'
+        main_cell = f'<td class="main-col" valign="top" style="width:{main_pt}pt;">{main_html}</td>'
+        gap_cell = f'<td class="gap-col" valign="top" style="width:{round(gap_pt)}pt;"></td>' if gap_pt > 0 else ''
+        side_cell = f'<td class="side-col-cell" valign="top" style="width:{side_pt}pt;">{side_col_html}</td>'
         cells = (side_cell + gap_cell + main_cell) if sidebar_first else (main_cell + gap_cell + side_cell)
         layout_html = f'<table class="layout-table"><tr>{cells}</tr></table>'
     else:
