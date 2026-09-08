@@ -355,21 +355,22 @@ class TextFormatter:
             stripped = line.strip()
             if re.match(r'^[\*\-]\s+', stripped):
                 bullet_content = re.sub(r'^[\*\-]\s+', '', stripped)
-                if not in_list:
-                    processed_lines.append('<ul>')
-                    in_list = True
-                processed_lines.append(f'<li>{bullet_content}</li>')
+                # A plain div with a manual bullet + hanging indent, NOT a
+                # native <ul>/<li>. ReportLab's list Flowable has its own
+                # internal spacing hardcoded into the bullet mechanism that
+                # CSS margin/padding cannot fully override — confirmed by
+                # measuring the same residual gap survive three rounds of
+                # CSS-only fixes. A plain div's spacing is 100% ours to
+                # control, so this closes it for good instead of chasing it.
+                processed_lines.append(f'<div class="bullet-line">&bull;&nbsp;&nbsp;{bullet_content}</div>')
+                in_list = True
             else:
                 if in_list:
-                    processed_lines.append('</ul>')
                     in_list = False
                 if stripped:
                     processed_lines.append(f'{line}<br>')
                 else:
                     processed_lines.append('<br>')
-
-        if in_list:
-            processed_lines.append('</ul>')
 
         return "".join(processed_lines)
 
@@ -1275,16 +1276,11 @@ def render_experience_items(exp_list):
 
         bullets_html = ""
         if exp.get("bullets"):
-            bullets_html += '<ul>'
             for bullet in exp.get("bullets", []):
-                bullets_html += f'<li>{TextFormatter.format_html_for_pdf(bullet)}</li>'
-            bullets_html += '</ul>'
-        # Wrap in a div, matching Education's high_block structure exactly.
-        # An unwrapped <ul> let its own trailing space escape and stack on
-        # top of the section's margin, giving Work Experience/Experience
-        # entries ~14pt more trailing gap than Education's (wrapped) bullets
-        # — same content, same CSS, inconsistent result purely from this
-        # missing wrapper.
+                bullets_html += f'<div class="bullet-line">&bull;&nbsp;&nbsp;{TextFormatter.format_html_for_pdf(bullet)}</div>'
+        # Wrap in a div, matching Education's high_block structure exactly,
+        # so this entry's trailing spacing behaves identically to every
+        # other entry type regardless of what it ends with.
         bullets_html = f'<div>{bullets_html}</div>' if bullets_html else ""
 
         if title_html or sub_container or summary_html or bullets_html or link_html:
@@ -1771,8 +1767,7 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
         .entry-keywords {{ font-size: 9pt; color: #555; margin: 0; padding: 0; }}
         .professional-summary {{ margin-top: 0pt; margin-bottom: {section_margin_pt}pt; padding: 0pt; font-size: {body_size}pt; line-height: {line_height}; color: #333; }}
         .professional-summary p {{ margin: 0; }}
-        ul {{ margin-left: 20px; margin-top: 0pt; margin-bottom: 0pt; }}
-        li {{ margin-bottom: 0pt; margin-top: 0pt; line-height: {line_height}; }}
+        .bullet-line {{ margin: 0; padding: 0; padding-left: 14pt; text-indent: -14pt; line-height: {line_height}; }}
         code {{ background: #f4f4f4; padding: 2px 4px; font-family: monospace; }}
 
         /* Social links: no extra margins */
