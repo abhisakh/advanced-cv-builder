@@ -385,10 +385,23 @@ def entry_header_html(title_html: str, meta_html: str) -> str:
 
 def fix_entry_spacing(section_html: str) -> str:
     """
-    Disabled: With minimal spacing model (margin-bottom: 0pt on .entry),
-    no extra spacers are needed. All spacing is controlled by line_height only.
+    Inserts a real spacer block between consecutive `.entry` divs.
+
+    `.entry { margin-bottom: ... }` is unreliable in xhtml2pdf when the div's
+    content starts with a <table> (every .entry starts with the
+    entry-header-table) — margin near a table doesn't reliably apply. A
+    spacer div with real (non-breaking-space) content sidesteps that, since
+    occupied text height is the one thing that's proven reliable everywhere
+    in this renderer. Its height is set via the `.entry-spacer` CSS class in
+    generate_cv_html, derived from the same body_size x line_height formula
+    that drives every other gap in the document — so Line Height is the
+    single dial that scales all of it together, not an independent value.
+    Only fires *between* entries (regex requires a following entry), never
+    after the last one in a section — the section's own margin already
+    covers that transition.
     """
-    return section_html
+    spacer = '<div class="entry-spacer">&nbsp;</div>'
+    return re.sub(r'(</div>\s*)(<div class="entry">)', rf'\1{spacer}\2', section_html)
 
 # ============================================================================
 # CONFIGURATION & CONSTANTS
@@ -1559,23 +1572,17 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
     # regardless of which column it ends up in.
 
     # ========================================================================
-    # UNIFORM SPACING CALCULATION (Fix for Bug #2)
-    # All spacing now scales uniformly from body_size × line_height
+    # UNIFORM SPACING — single source of truth, driven by Line Height
     # ========================================================================
-
-    # ========================================================================
-    # COMPLETE SPACING HIERARCHY (controlled by Line Height ONLY)
-    # Remove all decorative padding/margins - keep only line_height spacing
-    # ========================================================================
-
-    # Base unit: one line of body text at current settings (for section breaks only)
+    # Base unit: one line of body text at current settings. Every vertical
+    # gap in the document is a multiple of this ONE value, so moving the
+    # Line Height slider scales all of them together, proportionally, in
+    # one motion — no independent/hardcoded gap can drift out of sync with
+    # another one anymore.
     base_line_height_pt = round(body_size * line_height, 2)
 
-    # MINIMAL spacing tiers (line_height driven):
-    section_margin_pt = base_line_height_pt  # Only gap between major sections
-
-    # Everything else is removed - content flows with line_height only
-    # No column padding, no decorative margins, no wasted vertical space
+    section_margin_pt = base_line_height_pt        # gap between sections (1.0x)
+    entry_gap_pt = round(base_line_height_pt * 0.6, 2)  # gap between entries within a section (0.6x)
 
     main_html = ""
     sidebar_html = ""
@@ -1752,7 +1759,7 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
         .section {{ margin-bottom: {section_margin_pt}pt; page-break-inside: avoid; }}
         .section h2 {{ font-size: {heading_size}pt; color: {primary_color}; border-bottom: 2px solid {accent_color}; padding-bottom: 0pt; margin-bottom: 0pt; text-transform: uppercase; letter-spacing: 0.5px; }}
         .entry {{ margin-bottom: 0pt; }}
-        .entry-spacer {{ font-size: 1pt; line-height: 0pt; margin: 0; padding: 0; }}
+        .entry-spacer {{ font-size: 1pt; line-height: {entry_gap_pt}pt; margin: 0; padding: 0; }}
 
         /* Entry header (title left, date/meta right): no extra margins */
         .entry-header-table {{ width: 100%; margin-bottom: 0pt; }}
