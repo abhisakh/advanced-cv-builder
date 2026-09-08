@@ -1240,7 +1240,7 @@ with st.sidebar.expander(t("custom_sections")):
 # RENDERING UTILITIES FOR PDF PREVIEW
 # ============================================================================
 
-def render_experience_items(exp_list, entry_spacer_pt=4.6):
+def render_experience_items(exp_list):
     sec_html = ""
     for exp in exp_list:
         company = exp.get("company", "")
@@ -1260,15 +1260,15 @@ def render_experience_items(exp_list, entry_spacer_pt=4.6):
         title_html = f'<span class="entry-title">{TextFormatter.format_html_for_pdf(title)}</span>' if title else ""
         date_html = f'<span class="entry-meta">{date_range}</span>' if date_range else ""
 
-        link_html = f'<div class="entry-meta" style="margin-top: {round(entry_spacer_pt*0.33, 2)}pt;"><a href="{website}" target="_blank">{link_label} &rarr;</a></div>' if website else ""
+        link_html = f'<div class="entry-meta"><a href="{website}" target="_blank">{link_label} &rarr;</a></div>' if website else ""
         loc_str = addr if addr else loc
-        loc_html = f'<span class="entry-meta" style="margin-left: {round(entry_spacer_pt*1.5, 2)}pt;">📍 {loc_str}</span>' if loc_str else ""
+        loc_html = f'<span class="entry-meta">📍 {loc_str}</span>' if loc_str else ""
 
         sub_container = ""
         if company_html or loc_html:
-            sub_container = f'<div style="margin-bottom: {round(entry_spacer_pt*0.67, 2)}pt;">{company_html} {loc_html}</div>'
+            sub_container = f'<div>{company_html} {loc_html}</div>'
 
-        summary_html = f'<p style="margin-bottom: {round(entry_spacer_pt*1.3, 2)}pt;">{summary}</p>' if summary else ""
+        summary_html = f'<p>{summary}</p>' if summary else ""
 
         bullets_html = ""
         if exp.get("bullets"):
@@ -1289,7 +1289,7 @@ def render_experience_items(exp_list, entry_spacer_pt=4.6):
             '''
     return fix_entry_spacing(sec_html)
 
-def render_certification_items(cert_list, entry_spacer_pt=4.6):
+def render_certification_items(cert_list):
     sec_html = ""
     for cert in cert_list:
         title_str = cert.get("title", "")
@@ -1321,7 +1321,7 @@ def render_certification_items(cert_list, entry_spacer_pt=4.6):
             '''
     return fix_entry_spacing(sec_html)
 
-def render_single_section(sec_name, sections_data, layout_mode="Two Columns", custom_sections=None, custom_section_types=None, entry_spacer_pt=4.6, entry_margin_pt=9.4, section_margin_pt=14):
+def render_single_section(sec_name, sections_data, layout_mode="Two Columns", custom_sections=None, custom_section_types=None, section_margin_pt=14):
     sec_html = ""
     custom_sections = custom_sections or []
     custom_section_types = custom_section_types or {}
@@ -1409,10 +1409,10 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
         sec_html += '</div>'
 
     elif sec_name == "Experience" and sections_data.get("Experience"):
-        sec_html += f'<div class="section"><h2>{t("experience")}</h2>{render_experience_items(sections_data["Experience"], entry_spacer_pt)}</div>'
+        sec_html += f'<div class="section"><h2>{t("experience")}</h2>{render_experience_items(sections_data["Experience"])}</div>'
 
     elif sec_name == "Work Experience" and sections_data.get("Work Experience"):
-        sec_html += f'<div class="section"><h2>{t("work_experience")}</h2>{render_experience_items(sections_data["Work Experience"], entry_spacer_pt)}</div>'
+        sec_html += f'<div class="section"><h2>{t("work_experience")}</h2>{render_experience_items(sections_data["Work Experience"])}</div>'
 
     elif sec_name == "Education" and sections_data.get("Education"):
         sec_html += f'<div class="section"><h2>{t("education")}</h2>'
@@ -1493,9 +1493,9 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
 
         sec_html += f'<div class="section"><h2>{sec_name}</h2>'
         if sec_type == "Experience Layout" and isinstance(custom_val, list):
-            sec_html += render_experience_items(custom_val, entry_spacer_pt)
+            sec_html += render_experience_items(custom_val)
         elif sec_type == "Certification Layout" and isinstance(custom_val, list):
-            sec_html += render_certification_items(custom_val, entry_spacer_pt)
+            sec_html += render_certification_items(custom_val)
         elif sec_type == "Summary Layout":
             formatted_summary = TextFormatter.format_html_for_pdf(str(custom_val))
             sec_html += f'<div class="summary">{formatted_summary}</div>'
@@ -1566,27 +1566,19 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
     # All spacing now scales uniformly from body_size × line_height
     # ========================================================================
 
-    # Base unit: one line of body text at current settings
+    # ========================================================================
+    # COMPLETE SPACING HIERARCHY (controlled by Line Height ONLY)
+    # Remove all decorative padding/margins - keep only line_height spacing
+    # ========================================================================
+
+    # Base unit: one line of body text at current settings (for section breaks only)
     base_line_height_pt = round(body_size * line_height, 2)
 
-    # ========================================================================
-    # COMPLETE SPACING HIERARCHY (all derived from base_line_height_pt)
-    # ALL vertical spacing now responds to: Body Size, Line Height, Page Margin
-    # ========================================================================
+    # MINIMAL spacing tiers (line_height driven):
+    section_margin_pt = base_line_height_pt  # Only gap between major sections
 
-    # Main spacing tiers:
-    section_margin_pt = base_line_height_pt              # Full line: between sections
-    entry_margin_pt = round(base_line_height_pt * 0.67, 2)  # 2/3 line: between entries
-    entry_spacer_pt = round(base_line_height_pt * 0.33, 2)  # 1/3 line: small gaps
-
-    # Derived spacing (all responsive to the three universal controls):
-    header_bottom_margin_pt = base_line_height_pt        # Gap after header → scales with body_size
-    header_padding_bottom_pt = round(base_line_height_pt * 0.5, 2)  # Header bottom padding
-    column_padding_pt = round(base_line_height_pt * 0.75, 2)  # Main/side column padding
-    entry_small_margin_pt = round(entry_spacer_pt * 0.5, 2)  # Tiny gaps (2-3pt)
-
-    # Convert margin_size (mm) to pt for column gaps (27.8 pt per mm at 72 dpi)
-    margin_size_pt = round(margin_size * 2.83465, 2)
+    # Everything else is removed - content flows with line_height only
+    # No column padding, no decorative margins, no wasted vertical space
 
     main_html = ""
     sidebar_html = ""
@@ -1605,8 +1597,6 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
                         layout_mode=layout_mode,
                         custom_sections=cv_data.get("custom_sections", []),
                         custom_section_types=cv_data.get("custom_section_types", {}),
-                        entry_spacer_pt=entry_spacer_pt,
-                        entry_margin_pt=entry_margin_pt,
                         section_margin_pt=section_margin_pt
                     )
                     professional_summary_html = rendered  # Store separately
@@ -1619,8 +1609,6 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
                 layout_mode=layout_mode,
                 custom_sections=cv_data.get("custom_sections", []),
                 custom_section_types=cv_data.get("custom_section_types", {}),
-                entry_spacer_pt=entry_spacer_pt,
-                entry_margin_pt=entry_margin_pt,
                 section_margin_pt=section_margin_pt
             )
             if layout_mode == "Single Column":
@@ -1741,45 +1729,46 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
         @page {{ size: A4 portrait; margin: {margin_size}mm; }}
         body {{ font-family: '{font_family}', sans-serif; color: #333333; line-height: {line_height}; font-size: {body_size}pt; background: white; }}
 
-        /* Header: table replaces the old flexbox row (title/meta | photo) */
-        .header-table {{ width: 100%; border-bottom: 3px solid {primary_color}; padding-bottom: {header_padding_bottom_pt}pt; margin-bottom: {header_bottom_margin_pt}pt; }}
+        /* Header: minimal spacing */
+        .header-table {{ width: 100%; border-bottom: 3px solid {primary_color}; padding-bottom: 0pt; margin-bottom: {section_margin_pt}pt; }}
         .header-info-cell {{ vertical-align: top; }}
-        .header-photo-cell {{ vertical-align: top; text-align: right; padding-left: {column_padding_pt}pt; }}
-        /* FIX #1: FONT HIERARCHY - Clear, proportional sizing with proper gaps */
-        .header-info h1 {{ font-size: {heading_size + 5}pt; color: {primary_color}; margin-bottom: {entry_small_margin_pt}pt; text-transform: uppercase; letter-spacing: 1px; }}
-        .header-info .title {{ font-size: {heading_size - 1}pt; color: {accent_color}; font-weight: bold; margin-bottom: {entry_small_margin_pt}pt; }}
+        .header-photo-cell {{ vertical-align: top; text-align: right; padding-left: 0pt; }}
+        /* FIX #1: FONT HIERARCHY - No extra margins, only line_height controls spacing */
+        .header-info h1 {{ font-size: {heading_size + 5}pt; color: {primary_color}; margin-bottom: 0pt; text-transform: uppercase; letter-spacing: 1px; }}
+        .header-info .title {{ font-size: {heading_size - 1}pt; color: {accent_color}; font-weight: bold; margin-bottom: 0pt; }}
         .header-info .meta {{ font-size: {body_size - 1}pt; color: #666; line-height: 1.5; }}
         .profile-photo {{ border: 2px solid {primary_color}; }}
-        .summary {{ font-size: {body_size}pt; margin-bottom: {section_margin_pt}pt; line-height: 1.6; color: #333; }}
+        .summary {{ font-size: {body_size}pt; margin-bottom: {section_margin_pt}pt; line-height: {line_height}; color: #333; }}
 
-        /* Main/sidebar layout: table replaces the old flexbox row */
+        /* Main/sidebar layout: NO padding (line_height only) */
         .layout-table {{ }}
-        .main-col {{ vertical-align: top; background-color: {main_col_bg}; padding: {column_padding_pt}pt; }}
+        .main-col {{ vertical-align: top; background-color: {main_col_bg}; padding: 0pt; }}
         .gap-col {{ }}
-        .side-col-cell {{ vertical-align: top; background-color: {side_col_bg}; padding: {column_padding_pt}pt; }}
+        .side-col-cell {{ vertical-align: top; background-color: {side_col_bg}; padding: 0pt; }}
         .side-col {{ }}
 
         /* FIX #2: SPACING - All margins now scale uniformly from base_line_height_pt */
-        .section {{ margin-bottom: {section_margin_pt}pt; }}
-        .section h2 {{ font-size: {heading_size}pt; color: {primary_color}; border-bottom: 2px solid {accent_color}; padding-bottom: 4px; margin-bottom: {entry_spacer_pt}pt; text-transform: uppercase; letter-spacing: 0.5px; }}
+        /* FIX #2: SPACING - Only line_height controls all spacing */
+        .section {{ margin-bottom: {section_margin_pt}pt; page-break-inside: avoid; }}
+        .section h2 {{ font-size: {heading_size}pt; color: {primary_color}; border-bottom: 2px solid {accent_color}; padding-bottom: 0pt; margin-bottom: 0pt; text-transform: uppercase; letter-spacing: 0.5px; }}
         .entry {{ margin-bottom: 0pt; }}
-        .entry-spacer {{ font-size: 1pt; line-height: {entry_margin_pt}pt; margin: 0; padding: 0; }}
+        .entry-spacer {{ font-size: 1pt; line-height: 0pt; margin: 0; padding: 0; }}
 
-        /* Entry header (title left, date/meta right): table replaces the old flexbox row */
-        .entry-header-table {{ width: 100%; margin-bottom: {round(entry_spacer_pt/2, 2)}pt; }}
+        /* Entry header (title left, date/meta right): no extra margins */
+        .entry-header-table {{ width: 100%; margin-bottom: 0pt; }}
         .eh-left {{ text-align: left; vertical-align: baseline; width: 68%; }}
         .eh-right {{ text-align: right; vertical-align: baseline; padding-left: 10px; width: 32%; }}
         .entry-title {{ font-weight: bold; font-size: {body_size + 1}pt; color: #000; }}
         .entry-subtitle {{ font-size: {body_size - 1}pt; color: #666; }}
         .entry-meta {{ font-size: {body_size - 1}pt; color: #888; }}
-        .professional-summary {{ margin-top: {entry_spacer_pt}pt; margin-bottom: {section_margin_pt}pt; padding: 8px 0; font-size: {body_size}pt; line-height: {line_height}; color: #333; }}
+        .professional-summary {{ margin-top: 0pt; margin-bottom: {section_margin_pt}pt; padding: 0pt; font-size: {body_size}pt; line-height: {line_height}; color: #333; }}
         .professional-summary p {{ margin: 0; }}
-        ul {{ margin-left: 20px; margin-bottom: {entry_spacer_pt}pt; }}
-        li {{ margin-bottom: {round(entry_spacer_pt/2, 2)}pt; }}
+        ul {{ margin-left: 20px; margin-bottom: 0pt; }}
+        li {{ margin-bottom: 0pt; }}
         code {{ background: #f4f4f4; padding: 2px 4px; font-family: monospace; }}
 
-        /* Social links: stacked block links replace the old flex column */
-        .social-links a {{ display: block; margin-bottom: {entry_spacer_pt}pt; font-size: {body_size}pt; color: {primary_color}; text-decoration: none; }}
+        /* Social links: no extra margins */
+        .social-links a {{ display: block; margin-bottom: 0pt; font-size: {body_size}pt; color: {primary_color}; text-decoration: none; }}
     </style>
     </head>
     <body>
