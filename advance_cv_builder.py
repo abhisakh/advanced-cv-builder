@@ -1560,7 +1560,22 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
     # Used for entry-to-entry spacing so it scales with the compact preset
     # instead of a fixed 12px, and applies identically to every entry
     # regardless of which column it ends up in.
-    entry_spacer_pt = round(body_size * line_height, 2)
+
+    # ========================================================================
+    # UNIFORM SPACING CALCULATION (Fix for Bug #2)
+    # All spacing now scales uniformly from body_size × line_height
+    # ========================================================================
+
+    # Base unit: one line of body text at current settings
+    base_line_height_pt = round(body_size * line_height, 2)
+
+    # Spacing hierarchy (all derived from base_line_height_pt for consistency):
+    # - Section-to-section gap: full line height
+    # - Entry-to-entry gap: 2/3 of line height (moderate separation)
+    # - List item gap: 1/3 of line height (tight grouping)
+    section_margin_pt = base_line_height_pt
+    entry_margin_pt = round(base_line_height_pt * 0.67, 2)
+    entry_spacer_pt = round(base_line_height_pt * 0.33, 2)
 
     main_html = ""
     sidebar_html = ""
@@ -1713,11 +1728,12 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
         .header-table {{ width: 100%; border-bottom: 3px solid {primary_color}; padding-bottom: 15px; margin-bottom: 20px; }}
         .header-info-cell {{ vertical-align: top; }}
         .header-photo-cell {{ vertical-align: top; text-align: right; padding-left: 20px; }}
-        .header-info h1 {{ font-size: {heading_size + 6}pt; color: {primary_color}; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }}
-        .header-info .title {{ font-size: {body_size + 2}pt; color: {accent_color}; font-weight: bold; margin-bottom: 5px; }}
+        /* FIX #1: FONT HIERARCHY - Clear, proportional sizing with proper gaps */
+        .header-info h1 {{ font-size: {heading_size + 5}pt; color: {primary_color}; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }}
+        .header-info .title {{ font-size: {heading_size - 1}pt; color: {accent_color}; font-weight: bold; margin-bottom: 5px; }}
         .header-info .meta {{ font-size: {body_size - 1}pt; color: #666; line-height: 1.5; }}
         .profile-photo {{ border: 2px solid {primary_color}; }}
-        .summary {{ font-size: {body_size}pt; margin-bottom: 20px; line-height: 1.6; color: #333; }}
+        .summary {{ font-size: {body_size}pt; margin-bottom: {section_margin_pt}pt; line-height: 1.6; color: #333; }}
 
         /* Main/sidebar layout: table replaces the old flexbox row */
         .layout-table {{ }}
@@ -1726,26 +1742,27 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
         .side-col-cell {{ vertical-align: top; background-color: {side_col_bg}; padding: 12px; }}
         .side-col {{ }}
 
-        .section {{ margin-bottom: 20px; page-break-inside: avoid; }}
-        .section h2 {{ font-size: {heading_size}pt; color: {primary_color}; border-bottom: 2px solid {accent_color}; padding-bottom: 4px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }}
-        .entry {{ margin-bottom: 12px; }}
+        /* FIX #2: SPACING - All margins now scale uniformly from base_line_height_pt */
+        .section {{ margin-bottom: {section_margin_pt}pt; page-break-inside: avoid; }}
+        .section h2 {{ font-size: {heading_size}pt; color: {primary_color}; border-bottom: 2px solid {accent_color}; padding-bottom: 4px; margin-bottom: {entry_spacer_pt}pt; text-transform: uppercase; letter-spacing: 0.5px; }}
+        .entry {{ margin-bottom: {entry_margin_pt}pt; }}
         .entry-spacer {{ font-size: 1pt; line-height: {entry_spacer_pt}pt; margin: 0; padding: 0; }}
 
         /* Entry header (title left, date/meta right): table replaces the old flexbox row */
-        .entry-header-table {{ width: 100%; margin-bottom: 4px; }}
+        .entry-header-table {{ width: 100%; margin-bottom: {round(entry_spacer_pt/2, 2)}pt; }}
         .eh-left {{ text-align: left; vertical-align: baseline; width: 68%; }}
         .eh-right {{ text-align: right; vertical-align: baseline; padding-left: 10px; width: 32%; }}
         .entry-title {{ font-weight: bold; font-size: {body_size + 1}pt; color: #000; }}
         .entry-subtitle {{ font-size: {body_size - 1}pt; color: #666; }}
         .entry-meta {{ font-size: {body_size - 1}pt; color: #888; }}
-        .professional-summary {{ margin-top: 10px; margin-bottom: 15px; padding: 8px 0; font-size: {body_size}pt; line-height: {line_height}; color: #333; }}
+        .professional-summary {{ margin-top: {entry_spacer_pt}pt; margin-bottom: {section_margin_pt}pt; padding: 8px 0; font-size: {body_size}pt; line-height: {line_height}; color: #333; }}
         .professional-summary p {{ margin: 0; }}
-        ul {{ margin-left: 20px; margin-bottom: 8px; }}
-        li {{ margin-bottom: 3px; }}
+        ul {{ margin-left: 20px; margin-bottom: {entry_spacer_pt}pt; }}
+        li {{ margin-bottom: {round(entry_spacer_pt/2, 2)}pt; }}
         code {{ background: #f4f4f4; padding: 2px 4px; font-family: monospace; }}
 
         /* Social links: stacked block links replace the old flex column */
-        .social-links a {{ display: block; margin-bottom: 6px; font-size: {body_size}pt; color: {primary_color}; text-decoration: none; }}
+        .social-links a {{ display: block; margin-bottom: {entry_spacer_pt}pt; font-size: {body_size}pt; color: {primary_color}; text-decoration: none; }}
     </style>
     </head>
     <body>
