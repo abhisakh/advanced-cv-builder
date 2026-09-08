@@ -1244,7 +1244,7 @@ def render_experience_items(exp_list):
 
         comp_bold = "font-weight: bold;" if exp.get("bold_company", False) else ""
         comp_italic = "font-style: italic;" if exp.get("italic_company", False) else ""
-        comp_size = f"font-size: {exp.get('company_size', 10)}pt;"
+        comp_size = f"font-size: {exp.get('company_size', body_size - 1)}pt;"
         company_html = f'<span class="entry-subtitle" style="{comp_bold} {comp_italic} {comp_size}">{company}</span>' if company else ""
 
         title_html = f'<span class="entry-title">{TextFormatter.format_html_for_pdf(title)}</span>' if title else ""
@@ -1266,6 +1266,13 @@ def render_experience_items(exp_list):
             for bullet in exp.get("bullets", []):
                 bullets_html += f'<li>{TextFormatter.format_html_for_pdf(bullet)}</li>'
             bullets_html += '</ul>'
+        # Wrap in a div, matching Education's high_block structure exactly.
+        # An unwrapped <ul> let its own trailing space escape and stack on
+        # top of the section's margin, giving Work Experience/Experience
+        # entries ~14pt more trailing gap than Education's (wrapped) bullets
+        # — same content, same CSS, inconsistent result purely from this
+        # missing wrapper.
+        bullets_html = f'<div>{bullets_html}</div>' if bullets_html else ""
 
         if title_html or sub_container or summary_html or bullets_html or link_html:
             sec_html += f'''
@@ -1294,7 +1301,7 @@ def render_certification_items(cert_list):
 
         iss_bold = "font-weight: bold;" if cert.get("bold_issuer", False) else ""
         iss_italic = "font-style: italic;" if cert.get("italic_issuer", False) else ""
-        iss_size = f"font-size: {cert.get('issuer_size', 10)}pt;"
+        iss_size = f"font-size: {cert.get('issuer_size', body_size - 1)}pt;"
         issuer_html = f'<div class="entry-subtitle" style="{iss_bold} {iss_italic} {iss_size}">{issuer_str}</div>' if issuer_str else ""
 
         link_html = f'<div class="entry-meta"><a href="{url_str}" target="_blank">{label_str} &rarr;</a></div>' if url_str else ""
@@ -1413,7 +1420,7 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
 
             sch_bold = "font-weight: bold;" if edu.get("bold_school", False) else ""
             sch_italic = "font-style: italic;" if edu.get("italic_school", False) else ""
-            sch_size = f"font-size: {edu.get('school_size', 10)}pt;"
+            sch_size = f"font-size: {edu.get('school_size', body_size - 1)}pt;"
 
             edu_addr = edu.get("address", "")
             edu_loc_html = f' <span class="entry-meta">📍 {edu_addr}</span>' if edu_addr else ""
@@ -2065,7 +2072,7 @@ with col_edit_area:
                 with col_i_italic:
                     italic_issuer = st.checkbox("Italic Issuer", key=f"cert_italic_issuer_{uid}", value=cert_data.get("italic_issuer", True))
                 with col_i_size:
-                    issuer_size = st.slider("Issuer Size (pt)", 8, 16, cert_data.get("issuer_size", 10), key=f"cert_size_issuer_{uid}")
+                    issuer_size = st.slider("Issuer Size (pt)", 8, 16, cert_data.get("issuer_size", body_size - 1), key=f"cert_size_issuer_{uid}")
 
                 col_url, col_label = st.columns([2, 1])
                 with col_url:
@@ -2203,7 +2210,7 @@ with col_edit_area:
                 with col_c_italic:
                     italic_company = st.checkbox("Italic Company", key=f"exp_italic_comp_{uid}", value=exp_data.get("italic_company", True))
                 with col_c_size:
-                    company_size = st.slider("Company Size (pt)", 8, 16, exp_data.get("company_size", 10), key=f"exp_size_comp_{uid}")
+                    company_size = st.slider("Company Size (pt)", 8, 16, exp_data.get("company_size", body_size - 1), key=f"exp_size_comp_{uid}")
 
                 col_date, col_loc, col_addr = st.columns(3)
                 with col_date:
@@ -2275,7 +2282,7 @@ with col_edit_area:
                 with col_c_italic:
                     italic_company = st.checkbox("Italic Company", key=f"w_exp_italic_comp_{uid}", value=exp_data.get("italic_company", True))
                 with col_c_size:
-                    company_size = st.slider("Company Size (pt)", 8, 16, exp_data.get("company_size", 10), key=f"w_exp_size_comp_{uid}")
+                    company_size = st.slider("Company Size (pt)", 8, 16, exp_data.get("company_size", body_size - 1), key=f"w_exp_size_comp_{uid}")
 
                 col_date, col_loc, col_addr = st.columns(3)
                 with col_date:
@@ -2345,7 +2352,7 @@ with col_edit_area:
                 with col_s_italic:
                     italic_school = st.checkbox("Italic School", key=f"edu_italic_school_{uid}", value=edu_data.get("italic_school", True))
                 with col_s_size:
-                    school_size = st.slider("School Size (pt)", 8, 16, edu_data.get("school_size", 10), key=f"edu_size_school_{uid}")
+                    school_size = st.slider("School Size (pt)", 8, 16, edu_data.get("school_size", body_size - 1), key=f"edu_size_school_{uid}")
 
                 col_grad_start, col_grad_end, col_edu_addr = st.columns(3)
                 with col_grad_start:
