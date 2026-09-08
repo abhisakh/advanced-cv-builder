@@ -995,6 +995,7 @@ with st.sidebar.expander(t("template_styling"), expanded=True):
         accent_color = st.color_picker(t("accent_color"), template_config["accent"])
 
     main_col_bg = st.color_picker("Main Column Background Color", "#FFFFFF")
+    side_col_bg = st.color_picker("Side Column Background Color", template_config["sidebar_bg"])
 
     st.subheader(t("typography"))
     col_font, col_size = st.columns(2)
@@ -1522,7 +1523,7 @@ def analyze_main_column_load(cv_data: Dict, layout_mode: str) -> List[Dict]:
     results.sort(key=lambda r: r["chars"], reverse=True)
     return results
 
-def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct=32, sidebar_position="Right", layout_mode="Two Columns", primary_color=None, accent_color=None, font_family=None, heading_size=13, body_size=10, line_height=1.4, margin_size=12, main_col_bg="#FFFFFF", column_gap_px=20):
+def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct=32, sidebar_position="Right", layout_mode="Two Columns", primary_color=None, accent_color=None, font_family=None, heading_size=13, body_size=10, line_height=1.4, margin_size=12, main_col_bg="#FFFFFF", column_gap_px=20, side_col_bg=None):
     formatted_summary = TextFormatter.format_html_for_pdf(cv_data.get("summary", ""))
     full_name = cv_data.get("full_name", "")
     title_str = cv_data.get("title", "")
@@ -1535,6 +1536,7 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
     primary_color = primary_color or template_config["primary_color"]
     accent_color = accent_color or template_config["accent"]
     font_family = font_family or template_config["font"]
+    side_col_bg = side_col_bg or template_config["sidebar_bg"]
 
     main_html = ""
     sidebar_html = ""
@@ -1698,7 +1700,7 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
         .main-col {{ vertical-align: top; background-color: {main_col_bg}; padding: 12px; }}
         .gap-col {{ }}
         .side-col-cell {{ vertical-align: top; }}
-        .side-col {{ background-color: {template_config["sidebar_bg"]}; padding: 12px; }}
+        .side-col {{ background-color: {side_col_bg}; padding: 12px; }}
 
         .section {{ margin-bottom: 20px; page-break-inside: avoid; }}
         .section h2 {{ font-size: {heading_size}pt; color: {primary_color}; border-bottom: 2px solid {accent_color}; padding-bottom: 4px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }}
@@ -2476,7 +2478,7 @@ with col_edit_area:
                 layout_mode=layout_mode, primary_color=primary_color, accent_color=accent_color,
                 font_family=font_family, heading_size=heading_size, body_size=body_size,
                 line_height=line_height, margin_size=margin_size,
-                main_col_bg=main_col_bg, column_gap_px=column_gap_px
+                main_col_bg=main_col_bg, column_gap_px=column_gap_px, side_col_bg=side_col_bg
             )
             pdf_buffer = BytesIO()
             pisa_status = pisa.CreatePDF(src=rendered_html, dest=pdf_buffer, encoding="UTF-8")
