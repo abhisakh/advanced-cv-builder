@@ -333,12 +333,27 @@ class TextFormatter:
     """Parses lightweight markdown syntax into standard HTML tags for PDF rendering."""
 
     @staticmethod
-    def format_html_for_pdf(text: str) -> str:
+    def format_inline_pdf(text: str) -> str:
+        """
+        Escapes and applies inline markdown spans (bold/italic/underline/
+        strikethrough/superscript/subscript/code) ONLY — no line-splitting,
+        no bullet detection, no trailing <br>. Use this for a string that
+        is already a single, discrete item (e.g. one bullet from a list),
+        as opposed to format_html_for_pdf, which is for a multi-line
+        freeform blob (e.g. a "highlights" or "summary" field) where each
+        line needs to become its own <br>-terminated line or bullet-line
+        div. Calling format_html_for_pdf on an already-discrete item added
+        a spurious trailing <br> inside that item, since a plain bullet
+        string doesn't match the "* "/"- " bullet pattern and falls into
+        format_html_for_pdf's "plain line" branch — this is exactly what
+        was causing extra space between bullet lines in Experience/Work
+        Experience (which pass discrete bullet strings here) but not
+        Education (whose highlights are one multi-line blob, correctly
+        using format_html_for_pdf as originally intended).
+        """
         if not text:
             return ""
-
         text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-
         text = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', text)
         text = re.sub(r'\*(.*?)\*', r'<em>\1</em>', text)
         text = re.sub(r'__(.*?)__', r'<u>\1</u>', text)
@@ -346,33 +361,55 @@ class TextFormatter:
         text = re.sub(r'\^(.*?)\^', r'<sup>\1</sup>', text)
         text = re.sub(r'~(.*?)~', r'<sub>\1</sub>', text)
         text = re.sub(r'`(.*?)`', r'<code>\1</code>', text)
+        return text
+
+    @staticmethod
+    def format_html_for_pdf(text: str) -> str:
+        if not text:
+            return ""
+
+        text = TextFormatter.format_inline_pdf(text)
 
         lines = text.split('\n')
         processed_lines = []
-        in_list = False
 
         for line in lines:
             stripped = line.strip()
             if re.match(r'^[\*\-]\s+', stripped):
                 bullet_content = re.sub(r'^[\*\-]\s+', '', stripped)
-                # A plain div with a manual bullet + hanging indent, NOT a
-                # native <ul>/<li>. ReportLab's list Flowable has its own
-                # internal spacing hardcoded into the bullet mechanism that
-                # CSS margin/padding cannot fully override — confirmed by
-                # measuring the same residual gap survive three rounds of
-                # CSS-only fixes. A plain div's spacing is 100% ours to
-                # control, so this closes it for good instead of chasing it.
                 processed_lines.append(f'<div class="bullet-line">&bull;&nbsp;&nbsp;{bullet_content}</div>')
-                in_list = True
             else:
-                if in_list:
-                    in_list = False
                 if stripped:
                     processed_lines.append(f'{line}<br>')
                 else:
                     processed_lines.append('<br>')
 
         return "".join(processed_lines)
+
+def fix_entry_spacing(section_html: str) -> str:
+    """
+    Inserts a real spacer block between consecutive `.entry` divs.
+
+    `margin-bottom` on `.entry` is unreliable in xhtml2pdf because every
+    `.entry` starts with a <table> (entry-header-table) — margin near a
+    table doesn't reliably apply. A spacer div with real (non-breaking-
+    space) content sidesteps that, since occupied text height is the one
+    thing proven reliable everywhere in this renderer. Its height is set
+    via the `.entry-spacer` CSS class in generate_cv_html, derived from
+    the same body_size x line_height formula that drives every other gap
+    in the document — Line Height is the one dial that scales all of it.
+
+    IMPORTANT: call this exactly ONCE, on the final fully-assembled HTML
+    for a section (i.e. only from render_single_section's own return).
+    Calling it a second time on already-processed output will match the
+    spacer's own closing </div> immediately followed by the next
+    <div class="entry"> and insert a second spacer — silently doubling
+    the gap. render_experience_items / render_certification_items must
+    NOT call this themselves; they're always invoked from inside
+    render_single_section, which applies this once to everything.
+    """
+    spacer = '<div class="entry-spacer">&nbsp;</div>'
+    return re.sub(r'(</div>\s*)(<div class="entry">)', rf'\1{spacer}\2', section_html)
 
 def entry_header_html(title_html: str, meta_html: str) -> str:
     """Renders a title-left / meta-right row as a table.
@@ -383,26 +420,6 @@ def entry_header_html(title_html: str, meta_html: str) -> str:
         f'<tr><td class="eh-left">{title_html}</td>'
         f'<td class="eh-right">{meta_html}</td></tr></table>'
     )
-
-def fix_entry_spacing(section_html: str) -> str:
-    """
-    Inserts a real spacer block between consecutive `.entry` divs.
-
-    `.entry { margin-bottom: ... }` is unreliable in xhtml2pdf when the div's
-    content starts with a <table> (every .entry starts with the
-    entry-header-table) — margin near a table doesn't reliably apply. A
-    spacer div with real (non-breaking-space) content sidesteps that, since
-    occupied text height is the one thing that's proven reliable everywhere
-    in this renderer. Its height is set via the `.entry-spacer` CSS class in
-    generate_cv_html, derived from the same body_size x line_height formula
-    that drives every other gap in the document — so Line Height is the
-    single dial that scales all of it together, not an independent value.
-    Only fires *between* entries (regex requires a following entry), never
-    after the last one in a section — the section's own margin already
-    covers that transition.
-    """
-    spacer = '<div class="entry-spacer">&nbsp;</div>'
-    return re.sub(r'(</div>\s*)(<div class="entry">)', rf'\1{spacer}\2', section_html)
 
 # ============================================================================
 # CONFIGURATION & CONSTANTS
@@ -893,17 +910,6 @@ if "photo_data" not in st.session_state:
         "offset_y": 50,
     }))
 
-# Apply a pending "compact one-page preset" (queued by a button further down
-# the script) BEFORE the affected sliders/radio are instantiated below —
-# Streamlit forbids writing to a widget's session_state key after that
-# widget has already been created in the same run.
-if st.session_state.pop("_apply_compact_preset", False):
-    st.session_state["heading_size_slider"] = 11
-    st.session_state["body_size_slider"] = 9
-    st.session_state["line_height_slider"] = 1.2
-    st.session_state["margin_size_slider"] = 8
-    st.session_state["layout_mode_radio"] = t("two_columns")
-
 # ============================================================================
 # SIDEBAR - LANGUAGE SWITCHER & PROFILE MANAGEMENT
 # ============================================================================
@@ -1015,22 +1021,19 @@ with st.sidebar.expander(t("template_styling"), expanded=True):
     with col_accent:
         accent_color = st.color_picker(t("accent_color"), template_config["accent"])
 
-    main_col_bg = st.color_picker("Main Column Background Color", "#FFFFFF")
-    side_col_bg = st.color_picker("Side Column Background Color", template_config["sidebar_bg"])
-
     st.subheader(t("typography"))
     col_font, col_size = st.columns(2)
 
     with col_font:
         font_family = st.selectbox(t("font_family"), ["Helvetica", "Arial", "Georgia", "Times New Roman"])
     with col_size:
-        heading_size = st.slider(t("heading_size"), 10, 16, 13, key="heading_size_slider")
+        heading_size = st.slider(t("heading_size"), 10, 16, 13)
 
-    body_size = st.slider(t("body_size"), 9, 12, 10, key="body_size_slider")
-    line_height = st.slider(t("line_height"), 1.2, 1.8, 1.4, 0.1, key="line_height_slider")
-    margin_size = st.slider(t("margin_size"), 8, 20, 12, key="margin_size_slider")
+    body_size = st.slider(t("body_size"), 9, 12, 10)
+    line_height = st.slider(t("line_height"), 1.2, 1.8, 1.4, 0.1)
+    margin_size = st.slider(t("margin_size"), 8, 20, 12)
 
-    layout_mode = st.radio(t("layout_mode"), [t("two_columns"), t("single_column")], key="layout_mode_radio")
+    layout_mode = st.radio(t("layout_mode"), [t("two_columns"), t("single_column")])
     layout_mode = "Two Columns" if layout_mode == t("two_columns") else "Single Column"
 
 with st.sidebar.expander("👁️ Top Header Visibility Controls", expanded=False):
@@ -1050,12 +1053,10 @@ with st.sidebar.expander(t("layout_control"), expanded=False):
         sidebar_position = "Left" if sidebar_position == t("left") else "Right"
         sidebar_width_pct = st.slider(t("sidebar_width"), 20, 50, 32)
         main_width_pct = 100 - sidebar_width_pct
-        column_gap_px = st.slider("Column Gap (px)", 0, 40, 20)
     else:
         sidebar_position = "Right"
         sidebar_width_pct = 0
         main_width_pct = 100
-        column_gap_px = 0
 
     available_sections = list(dict.fromkeys(DEFAULT_SECTIONS + st.session_state.custom_sections))
 
@@ -1261,7 +1262,7 @@ def render_experience_items(exp_list):
         comp_size = f"font-size: {exp.get('company_size', body_size - 1)}pt;"
         company_html = f'<span class="entry-subtitle" style="{comp_bold} {comp_italic} {comp_size}">{company}</span>' if company else ""
 
-        title_html = f'<span class="entry-title">{TextFormatter.format_html_for_pdf(title)}</span>' if title else ""
+        title_html = f'<span class="entry-title">{TextFormatter.format_inline_pdf(title)}</span>' if title else ""
         date_html = f'<span class="entry-meta">{date_range}</span>' if date_range else ""
 
         link_html = f'<div class="entry-meta"><a href="{website}" target="_blank">{link_label} &rarr;</a></div>' if website else ""
@@ -1277,33 +1278,14 @@ def render_experience_items(exp_list):
         bullets_html = ""
         if exp.get("bullets"):
             for bullet in exp.get("bullets", []):
-                bullets_html += f'<div class="bullet-line">&bull;&nbsp;&nbsp;{TextFormatter.format_html_for_pdf(bullet)}</div>'
-        # Wrap in a div, matching Education's high_block structure exactly,
-        # so this entry's trailing spacing behaves identically to every
-        # other entry type regardless of what it ends with.
+                bullets_html += f'<div class="bullet-line">&bull;&nbsp;&nbsp;{TextFormatter.format_inline_pdf(bullet)}</div>'
         bullets_html = f'<div>{bullets_html}</div>' if bullets_html else ""
 
         if title_html or sub_container or summary_html or bullets_html or link_html:
-            sec_html += f'''
-            <div class="entry">
-                {entry_header_html(title_html, date_html)}
-                {sub_container}
-                {link_html}
-                {summary_html}
-                {bullets_html}
-            </div>
-            '''
-    # NOTE: fix_entry_spacing is intentionally NOT called here. Every call
-    # site of this function is inside render_single_section, which applies
-    # fix_entry_spacing exactly once to its own full output (which already
-    # includes this return value). Calling it here too double-processed the
-    # same content — the spacer div's own closing </div> sits right before
-    # the next <div class="entry">, which is exactly what the regex matches,
-    # so the second pass matched the first pass's spacer and inserted a
-    # second one. That's what made Experience/Work Experience/Certifications
-    # end up with double the gap of Education (which builds its entries
-    # directly inside render_single_section and only ever gets processed
-    # once).
+            entry_parts = [p for p in [entry_header_html(title_html, date_html), sub_container, link_html, summary_html, bullets_html] if p]
+            sec_html += f'<div class="entry">{"".join(entry_parts)}</div>'
+    # NOTE: fix_entry_spacing is intentionally NOT called here — see its
+    # docstring. render_single_section applies it once to everything.
     return sec_html
 
 def render_certification_items(cert_list):
@@ -1328,19 +1310,13 @@ def render_certification_items(cert_list):
         summary_html = f'<p>{summary_str}</p>' if summary_str else ""
 
         if title_html or issuer_html or date_html or summary_html or link_html:
-            sec_html += f'''
-            <div class="entry">
-                {entry_header_html(title_html, date_html)}
-                {issuer_html}
-                {link_html}
-                {summary_html}
-            </div>
-            '''
-    # See the matching note in render_experience_items — fix_entry_spacing
-    # is applied once, by render_single_section, not here.
+            entry_parts = [p for p in [entry_header_html(title_html, date_html), issuer_html, link_html, summary_html] if p]
+            sec_html += f'<div class="entry">{"".join(entry_parts)}</div>'
+    # NOTE: fix_entry_spacing is intentionally NOT called here — see its
+    # docstring. render_single_section applies it once to everything.
     return sec_html
 
-def render_single_section(sec_name, sections_data, layout_mode="Two Columns", custom_sections=None, custom_section_types=None, section_margin_pt=14):
+def render_single_section(sec_name, sections_data, layout_mode="Two Columns", custom_sections=None, custom_section_types=None):
     sec_html = ""
     custom_sections = custom_sections or []
     custom_section_types = custom_section_types or {}
@@ -1365,66 +1341,103 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
         if summary_text:
             formatted_summary = TextFormatter.format_html_for_pdf(summary_text)
             # NOTE: Professional Summary is special - it doesn't need a header label, just the content
-            sec_html += f'<div class="section professional-summary"><div>{formatted_summary}</div></div>'
+            sec_html += f'<div class="section professional-summary"><p>{formatted_summary}</p></div>'
 
     elif sec_name == "Technical Skills" and sections_data.get("Technical Skills"):
         sec_html += f'<div class="section"><h2>{t("tech_skills")}</h2>'
         for item in sections_data["Technical Skills"]:
-            name = TextFormatter.format_html_for_pdf(item.get("name", ""))
-            desc = TextFormatter.format_html_for_pdf(item.get("description", ""))
+            name = TextFormatter.format_inline_pdf(item.get("name", ""))
+            desc = TextFormatter.format_inline_pdf(item.get("description", ""))
             kw = TextFormatter.format_html_for_pdf(item.get("keywords", ""))
-            sec_html += f'''
-            <div class="entry">
-                <div class="entry-title">{name}</div>
-                <div class="entry-subtitle">{desc}</div>
-                <div class="entry-keywords">{kw}</div>
-            </div>
-            '''
+            entry_parts = [p for p in [
+                f'<div class="entry-title">{name}</div>' if name else "",
+                f'<div class="entry-subtitle">{desc}</div>' if desc else "",
+                f'<div class="entry-keywords">{kw}</div>' if kw else "",
+            ] if p]
+            sec_html += f'<div class="entry">{"".join(entry_parts)}</div>' if entry_parts else ""
         sec_html += '</div>'
 
     elif sec_name == "Soft Skills" and sections_data.get("Soft Skills"):
         sec_html += f'<div class="section"><h2>{t("soft_skills")}</h2>'
         for item in sections_data["Soft Skills"]:
-            name = TextFormatter.format_html_for_pdf(item.get("name", ""))
-            desc = TextFormatter.format_html_for_pdf(item.get("description", ""))
-            kw = TextFormatter.format_html_for_pdf(item.get("keywords", ""))
-            sec_html += f'''
-            <div class="entry">
-                <div class="entry-title">{name}</div>
-                <div class="entry-subtitle">{desc}</div>
-                <div class="entry-keywords">{kw}</div>
-            </div>
-            '''
+            name = TextFormatter.format_inline_pdf(item.get("name", "")).strip()
+            desc = TextFormatter.format_inline_pdf(item.get("description", "")).strip()
+            kw = TextFormatter.format_html_for_pdf(item.get("keywords", "")).strip()
+            # Remove empty <br> tags from kw to detect truly empty keywords
+            kw_clean = re.sub(r'<br\s*/?>', '', kw).strip()
+            # Skip completely empty items (including whitespace-only and br-only)
+            if not name and not desc and not kw_clean:
+                continue
+            # Render with consistent font sizing (body_size)
+            if name:
+                if desc:
+                    sec_html += f'<p><strong>{name}:</strong> {desc}</p>'
+                elif kw_clean:
+                    # kw already has bullet formatting from format_html_for_pdf
+                    sec_html += f'<p><strong>{name}:</strong></p>{kw}'
+                else:
+                    sec_html += f'<p><strong>{name}</strong></p>'
+            elif desc:
+                sec_html += f'<p>{desc}</p>'
+            elif kw_clean:
+                # kw already has bullet formatting from format_html_for_pdf
+                sec_html += kw
         sec_html += '</div>'
 
     elif sec_name == "Strengths" and sections_data.get("Strengths"):
         sec_html += f'<div class="section"><h2>{t("strengths")}</h2>'
         for item in sections_data["Strengths"]:
-            name = TextFormatter.format_html_for_pdf(item.get("name", ""))
-            desc = TextFormatter.format_html_for_pdf(item.get("description", ""))
-            kw = TextFormatter.format_html_for_pdf(item.get("keywords", ""))
-            sec_html += f'''
-            <div class="entry">
-                <div class="entry-title">{name}</div>
-                <div class="entry-subtitle">{desc}</div>
-                <div class="entry-keywords">{kw}</div>
-            </div>
-            '''
+            name = TextFormatter.format_inline_pdf(item.get("name", "")).strip()
+            desc = TextFormatter.format_inline_pdf(item.get("description", "")).strip()
+            kw = TextFormatter.format_html_for_pdf(item.get("keywords", "")).strip()
+            # Remove empty <br> tags from kw to detect truly empty keywords
+            kw_clean = re.sub(r'<br\s*/?>', '', kw).strip()
+            # Skip completely empty items (including whitespace-only and br-only)
+            if not name and not desc and not kw_clean:
+                continue
+            # Render with consistent font sizing (body_size)
+            if name:
+                if desc:
+                    sec_html += f'<p><strong>{name}:</strong> {desc}</p>'
+                elif kw_clean:
+                    # kw already has bullet formatting from format_html_for_pdf
+                    sec_html += f'<p><strong>{name}:</strong></p>{kw}'
+                else:
+                    sec_html += f'<p><strong>{name}</strong></p>'
+            elif desc:
+                sec_html += f'<p>{desc}</p>'
+            elif kw_clean:
+                # kw already has bullet formatting from format_html_for_pdf
+                sec_html += kw
         sec_html += '</div>'
 
     elif sec_name == "Interests" and sections_data.get("Interests"):
         sec_html += f'<div class="section"><h2>{t("interests")}</h2>'
         for item in sections_data["Interests"]:
-            name = TextFormatter.format_html_for_pdf(item.get("name", ""))
-            desc = TextFormatter.format_html_for_pdf(item.get("description", ""))
-            kw = TextFormatter.format_html_for_pdf(item.get("keywords", ""))
-            sec_html += f'''
-            <div class="entry">
-                <div class="entry-title">{name}</div>
-                <div class="entry-subtitle">{desc}</div>
-                <div class="entry-keywords">{kw}</div>
-            </div>
-            '''
+            name = TextFormatter.format_inline_pdf(item.get("name", "")).strip()
+            desc = TextFormatter.format_inline_pdf(item.get("description", "")).strip()
+            kw = TextFormatter.format_html_for_pdf(item.get("keywords", "")).strip()
+            # Remove empty <br> tags from kw to detect truly empty keywords
+            kw_clean = re.sub(r'<br\s*/?>', '', kw).strip()
+            # Skip completely empty items (including whitespace-only and br-only)
+            if not name and not desc and not kw_clean:
+                continue
+            # Render with consistent font sizing (body_size)
+            if name:
+                if desc:
+                    sec_html += f'<p><strong>{name}:</strong> {desc}</p>'
+                elif kw_clean:
+                    # kw already has bullet formatting from format_html_for_pdf
+                    sec_html += f'<p><strong>{name}:</strong></p>{kw}'
+                else:
+                    sec_html += f'<p><strong>{name}</strong></p>'
+            elif desc:
+                sec_html += f'<p>{desc}</p>'
+            elif kw_clean:
+                # kw already has bullet formatting from format_html_for_pdf
+                sec_html += kw
+        sec_html += '</div>'
+        sec_html += '</div>'
         sec_html += '</div>'
 
     elif sec_name == "Experience" and sections_data.get("Experience"):
@@ -1438,44 +1451,40 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
         for edu in sections_data["Education"]:
             formatted_highlights = TextFormatter.format_html_for_pdf(edu.get("highlights", ""))
             gpa_block = f"<div class='entry-meta'>GPA: {edu.get('gpa', '')}</div>" if edu.get("gpa") else ""
-            high_block = f"<div>{formatted_highlights}</div>" if formatted_highlights else ""
+            high_block = f"<p>{formatted_highlights}</p>" if formatted_highlights else ""
 
             sch_bold = "font-weight: bold;" if edu.get("bold_school", False) else ""
             sch_italic = "font-style: italic;" if edu.get("italic_school", False) else ""
-            sch_size = f"font-size: {edu.get('school_size', body_size - 1)}pt;"
+            sch_size = f"font-size: {edu.get('school_size', 10)}pt;"
 
             edu_addr = edu.get("address", "")
             edu_loc_html = f' <span class="entry-meta">📍 {edu_addr}</span>' if edu_addr else ""
             school_html = f'<div class="entry-subtitle" style="{sch_bold} {sch_italic} {sch_size}">{edu.get("school", "")}{edu_loc_html}</div>'
 
-            sec_html += f'''
-            <div class="entry">
-                {entry_header_html(f'<span class="entry-title">{edu.get("degree", "")}</span>', f'<span class="entry-meta">{edu.get("graduation", "")}</span>')}
-                {school_html}
-                {gpa_block}
-                {high_block}
-            </div>
-            '''
+            entry_parts = [p for p in [
+                entry_header_html(f'<span class="entry-title">{edu.get("degree", "")}</span>', f'<span class="entry-meta">{edu.get("graduation", "")}</span>'),
+                school_html, gpa_block, high_block
+            ] if p]
+            sec_html += f'<div class="entry">{"".join(entry_parts)}</div>'
         sec_html += '</div>'
 
     elif sec_name == "Projects" and sections_data.get("Projects"):
         sec_html += f'<div class="section"><h2>{t("projects")}</h2>'
         for proj in sections_data["Projects"]:
-            name = TextFormatter.format_html_for_pdf(proj.get("name", ""))
-            desc = TextFormatter.format_html_for_pdf(proj.get("description", ""))
+            name = TextFormatter.format_inline_pdf(proj.get("name", ""))
+            desc = TextFormatter.format_inline_pdf(proj.get("description", ""))
             date_range = proj.get("date_range", "")
             website = proj.get("website", "")
             summary = TextFormatter.format_html_for_pdf(proj.get("summary", ""))
 
             link_block = f"<a href='{website}' target='_blank'>Website &rarr;</a>" if website else ""
-            sec_html += f'''
-            <div class="entry">
-                {entry_header_html(f'<span class="entry-title">{name}</span>', f'<span class="entry-meta">{date_range}</span>')}
-                <div class="entry-subtitle">{desc}</div>
-                <div>{summary}</div>
-                {link_block}
-            </div>
-            '''
+            entry_parts = [p for p in [
+                entry_header_html(f'<span class="entry-title">{name}</span>', f'<span class="entry-meta">{date_range}</span>'),
+                f'<div class="entry-subtitle">{desc}</div>' if desc else "",
+                f'<p>{summary}</p>' if summary else "",
+                link_block
+            ] if p]
+            sec_html += f'<div class="entry">{"".join(entry_parts)}</div>'
         sec_html += '</div>'
 
     elif sec_name == "Certifications" and sections_data.get("Certifications"):
@@ -1484,25 +1493,24 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
     elif sec_name == "Awards" and sections_data.get("Awards"):
         sec_html += f'<div class="section"><h2>{t("awards")}</h2>'
         for awd in sections_data["Awards"]:
-            title = TextFormatter.format_html_for_pdf(awd.get("title", ""))
-            awarder = TextFormatter.format_html_for_pdf(awd.get("awarder", ""))
+            title = TextFormatter.format_inline_pdf(awd.get("title", ""))
+            awarder = TextFormatter.format_inline_pdf(awd.get("awarder", ""))
             date = awd.get("date", "")
             url = awd.get("url", "")
             link_block = f"<a href='{url}' target='_blank'>Website &rarr;</a>" if url else ""
-            sec_html += f'''
-            <div class="entry">
-                {entry_header_html(f'<span class="entry-title">{title}</span>', f'<span class="entry-meta">{date}</span>')}
-                <div class="entry-subtitle">{awarder}</div>
-                {link_block}
-            </div>
-            '''
+            entry_parts = [p for p in [
+                entry_header_html(f'<span class="entry-title">{title}</span>', f'<span class="entry-meta">{date}</span>'),
+                f'<div class="entry-subtitle">{awarder}</div>' if awarder else "",
+                link_block
+            ] if p]
+            sec_html += f'<div class="entry">{"".join(entry_parts)}</div>'
         sec_html += '</div>'
 
     elif sec_name == "Languages" and sections_data.get("Languages"):
         sec_html += f'<div class="section"><h2>{t("languages")}</h2>'
         for lang in sections_data["Languages"]:
-            name = TextFormatter.format_html_for_pdf(lang.get("name", ""))
-            desc = TextFormatter.format_html_for_pdf(lang.get("description", ""))
+            name = TextFormatter.format_inline_pdf(lang.get("name", ""))
+            desc = TextFormatter.format_inline_pdf(lang.get("description", ""))
             sec_html += f'<p><strong>{name}:</strong> {desc}</p>'
         sec_html += '</div>'
 
@@ -1525,41 +1533,7 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
 
     return fix_entry_spacing(sec_html)
 
-def analyze_main_column_load(cv_data: Dict, layout_mode: str) -> List[Dict]:
-    """
-    Estimates how much each *visible, Main-Column* section contributes to
-    page length. Sidebar content is deliberately excluded — it renders in a
-    narrow, fixed-width box and is almost never what pushes a CV to page 2;
-    the main column (Experience, Education, Projects...) is.
-
-    Returns a list of {"name", "chars"} for main-column sections, sorted by
-    size descending. In Single Column mode, every visible section counts as
-    "main column" since there's no sidebar to split into.
-    """
-    results = []
-    is_two_column = (layout_mode == "Two Columns")
-    for sec in st.session_state.section_order:
-        if not st.session_state.section_visibility.get(sec, True):
-            continue
-        placement = st.session_state.section_placement.get(sec, "Main Column")
-        if is_two_column and placement == "Sidebar":
-            continue  # sidebar content — not what we're measuring here
-
-        rendered = render_single_section(
-            sec,
-            cv_data.get("sections_data", {}),
-            layout_mode=layout_mode,
-            custom_sections=cv_data.get("custom_sections", []),
-            custom_section_types=cv_data.get("custom_section_types", {})
-        )
-        char_count = len(re.sub(r'<[^>]+>', '', rendered))
-        if char_count > 0:
-            results.append({"name": sec, "chars": char_count})
-
-    results.sort(key=lambda r: r["chars"], reverse=True)
-    return results
-
-def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct=32, sidebar_position="Right", layout_mode="Two Columns", primary_color=None, accent_color=None, font_family=None, heading_size=13, body_size=10, line_height=1.4, margin_size=12, main_col_bg="#FFFFFF", column_gap_px=20, side_col_bg=None):
+def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct=32, sidebar_position="Right", layout_mode="Two Columns", primary_color=None, accent_color=None, font_family=None, heading_size=13, body_size=10, line_height=1.4, margin_size=12):
     formatted_summary = TextFormatter.format_html_for_pdf(cv_data.get("summary", ""))
     full_name = cv_data.get("full_name", "")
     title_str = cv_data.get("title", "")
@@ -1572,26 +1546,6 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
     primary_color = primary_color or template_config["primary_color"]
     accent_color = accent_color or template_config["accent"]
     font_family = font_family or template_config["font"]
-    side_col_bg = side_col_bg or template_config["sidebar_bg"]
-
-    # Height of one "line" at the current typography settings (body_size x
-    # line_height — the same values driving the main column's own text).
-    # Used for entry-to-entry spacing so it scales with the compact preset
-    # instead of a fixed 12px, and applies identically to every entry
-    # regardless of which column it ends up in.
-
-    # ========================================================================
-    # UNIFORM SPACING — single source of truth, driven by Line Height
-    # ========================================================================
-    # Base unit: one line of body text at current settings. Every vertical
-    # gap in the document is a multiple of this ONE value, so moving the
-    # Line Height slider scales all of them together, proportionally, in
-    # one motion — no independent/hardcoded gap can drift out of sync with
-    # another one anymore.
-    base_line_height_pt = round(body_size * line_height, 2)
-
-    section_margin_pt = base_line_height_pt        # gap between sections (1.0x)
-    entry_gap_pt = round(base_line_height_pt * 0.6, 2)  # gap between entries within a section (0.6x)
 
     main_html = ""
     sidebar_html = ""
@@ -1609,8 +1563,7 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
                         cv_data.get("sections_data", {}),
                         layout_mode=layout_mode,
                         custom_sections=cv_data.get("custom_sections", []),
-                        custom_section_types=cv_data.get("custom_section_types", {}),
-                        section_margin_pt=section_margin_pt
+                        custom_section_types=cv_data.get("custom_section_types", {})
                     )
                     professional_summary_html = rendered  # Store separately
                     continue  # Don't add to main_html
@@ -1621,8 +1574,7 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
                 cv_data.get("sections_data", {}),
                 layout_mode=layout_mode,
                 custom_sections=cv_data.get("custom_sections", []),
-                custom_section_types=cv_data.get("custom_section_types", {}),
-                section_margin_pt=section_margin_pt
+                custom_section_types=cv_data.get("custom_section_types", {})
             )
             if layout_mode == "Single Column":
                 main_html += rendered
@@ -1710,8 +1662,8 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
         header_row = header_info_cell + header_photo_cell
     header_html = f'<table class="header-table"><tr>{header_row}</tr></table>'
 
-    # Main/sidebar layout: a 3-cell table (main | gap | sidebar) in Two
-    # Columns mode, a plain div in Single Column mode.
+    # Main layout: a 3-cell table (main | gap | sidebar) in Two Columns
+    # mode, a plain div in Single Column mode.
     # (Old version used CSS flexbox with flex-direction row/row-reverse and
     # a `gap` property — neither of which xhtml2pdf's table engine has, so
     # we compute real point widths, including a real empty spacer column
@@ -1719,18 +1671,28 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
     if is_two_column and side_col_html:
         a4_width_mm = 210
         content_width_pt = (a4_width_mm - 2 * margin_size) * 2.83465
-        gap_pt = max(column_gap_px, 0) * 0.75
+        gap_pt = 20 * 0.75  # 20px gap, converted to points
         cols_pt = max(content_width_pt - gap_pt, 0)
         main_pt = round(cols_pt * (main_width_pct / 100))
         side_pt = round(cols_pt * (sidebar_width_pct / 100))
 
         main_cell = f'<td class="main-col" valign="top" style="width:{main_pt}pt;">{main_html}</td>'
-        gap_cell = f'<td class="gap-col" valign="top" style="width:{round(gap_pt)}pt;"></td>' if gap_pt > 0 else ''
+        gap_cell = f'<td class="gap-col" valign="top" style="width:{round(gap_pt)}pt;"></td>'
         side_cell = f'<td class="side-col-cell" valign="top" style="width:{side_pt}pt;">{side_col_html}</td>'
         cells = (side_cell + gap_cell + main_cell) if sidebar_first else (main_cell + gap_cell + side_cell)
         layout_html = f'<table class="layout-table"><tr>{cells}</tr></table>'
     else:
         layout_html = f'<div class="main-col">{main_html}</div>'
+
+    # ========================================================================
+    # UNIFORM SPACING — single source of truth, driven by Line Height
+    # ========================================================================
+    # Base unit: one line of body text at current settings. Every vertical
+    # gap in the document is a multiple of this ONE value, so moving the
+    # Line Height slider scales all of them together, proportionally.
+    base_line_height_pt = round(body_size * line_height, 2)
+    section_margin_pt = base_line_height_pt              # gap between sections (1.0x)
+    entry_gap_pt = round(base_line_height_pt * 0.6, 2)   # gap between entries within a section (0.6x)
 
     html = f"""
     <!DOCTYPE html>
@@ -1742,49 +1704,58 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
         @page {{ size: A4 portrait; margin: {margin_size}mm; }}
         body {{ font-family: '{font_family}', sans-serif; color: #333333; line-height: {line_height}; font-size: {body_size}pt; background: white; }}
 
-        /* Prevent xhtml2pdf default margins on all content elements */
-        div, p, h1, h2, h3, h4, h5, h6, ul, ol, li, table, tr, td {{ margin: 0; padding: 0; }}
-
-        /* Header: minimal spacing */
-        .header-table {{ width: 100%; border-bottom: 3px solid {primary_color}; padding-bottom: 0pt; margin-bottom: {section_margin_pt}pt; }}
+        /* Header: table replaces the old flexbox row (title/meta | photo) */
+        .header-table {{ width: 100%; border-bottom: 3px solid {primary_color}; padding-bottom: 15px; margin-bottom: {section_margin_pt}pt; }}
         .header-info-cell {{ vertical-align: top; }}
-        .header-photo-cell {{ vertical-align: top; text-align: right; padding-left: 0pt; }}
-        /* FIX #1: FONT HIERARCHY - No extra margins, only line_height controls spacing */
-        .header-info h1 {{ font-size: {heading_size + 5}pt; color: {primary_color}; margin-bottom: 0pt; text-transform: uppercase; letter-spacing: 1px; }}
-        .header-info .title {{ font-size: {heading_size - 1}pt; color: {accent_color}; font-weight: bold; margin-bottom: 0pt; }}
+        .header-photo-cell {{ vertical-align: top; text-align: right; padding-left: 20px; padding-top: 10px; }}
+        .header-info h1 {{ font-size: {heading_size + 6}pt; color: {primary_color}; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }}
+        .header-info .title {{ font-size: {body_size + 2}pt; color: {accent_color}; font-weight: bold; margin-bottom: 5px; }}
         .header-info .meta {{ font-size: {body_size - 1}pt; color: #666; line-height: 1.5; }}
-        .profile-photo {{ border: 2px solid {primary_color}; }}
-        .summary {{ font-size: {body_size}pt; margin-bottom: {section_margin_pt}pt; line-height: {line_height}; color: #333; }}
+        .profile-photo {{ border: 2px solid {primary_color}; padding: 8px; margin-top: 5px; }}</ antml:parameter>
+        .summary {{ font-size: {body_size}pt; margin-bottom: {section_margin_pt}pt; line-height: 1.6; color: #333; }}
 
-        /* Main/sidebar layout: NO padding (line_height only) */
-        .layout-table {{ }}
-        .main-col {{ vertical-align: top; background-color: {main_col_bg}; padding: 0pt; }}
+        /* Main/sidebar layout: table replaces the old flexbox row */
+        .layout-table {{ margin-top: 3px; }}
         .gap-col {{ }}
-        .side-col-cell {{ vertical-align: top; background-color: {side_col_bg}; padding: 0pt; }}
+        .main-col {{ vertical-align: top; padding-top: 12px; }}
+        /* Side column background/padding live on the <td> itself (like
+           main-col), not a nested <div> — padding on a div nested inside a
+           table cell is unreliable in xhtml2pdf; padding on the cell itself
+           is not. */
+        .side-col-cell {{ vertical-align: top; background-color: {template_config["sidebar_bg"]}; padding: 12px; padding-top: 15px; }}
         .side-col {{ }}
 
-        /* FIX #2: SPACING - All margins now scale uniformly from base_line_height_pt */
-        /* FIX #2: SPACING - Only line_height controls all spacing */
         .section {{ margin-bottom: {section_margin_pt}pt; page-break-inside: avoid; }}
-        .section h2 {{ font-size: {heading_size}pt; color: {primary_color}; border-bottom: 2px solid {accent_color}; padding-bottom: 0pt; margin-bottom: 0pt; text-transform: uppercase; letter-spacing: 0.5px; }}
+        .section h2 {{ font-size: {heading_size}pt; color: {primary_color}; border-bottom: 2px solid {accent_color}; padding-bottom: 4px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }}
+        /* .entry itself carries NO margin — margin-bottom on a div whose
+           content starts with a <table> (entry-header-table, which every
+           .entry starts with) is unreliable in xhtml2pdf. Real entry-to-
+           entry spacing comes from the .entry-spacer mechanism instead
+           (see fix_entry_spacing), which uses actual occupied text height
+           rather than margin/padding. */
         .entry {{ margin-bottom: 0pt; }}
         .entry-spacer {{ font-size: 1pt; line-height: {entry_gap_pt}pt; margin: 0; padding: 0; }}
 
-        /* Entry header (title left, date/meta right): no extra margins */
-        .entry-header-table {{ width: 100%; margin-bottom: 0pt; }}
+        /* Entry header (title left, date/meta right): table replaces the old flexbox row */
+        .entry-header-table {{ width: 100%; margin-bottom: 4px; }}
         .eh-left {{ text-align: left; vertical-align: baseline; width: 68%; }}
         .eh-right {{ text-align: right; vertical-align: baseline; padding-left: 10px; width: 32%; }}
         .entry-title {{ font-weight: bold; font-size: {body_size + 1}pt; color: #000; }}
         .entry-subtitle {{ font-size: {body_size - 1}pt; color: #666; }}
         .entry-meta {{ font-size: {body_size - 1}pt; color: #888; }}
-        .entry-keywords {{ font-size: 9pt; color: #555; margin: 0; padding: 0; }}
-        .professional-summary {{ margin-top: 0pt; margin-bottom: {section_margin_pt}pt; padding: 0pt; font-size: {body_size}pt; line-height: {line_height}; color: #333; }}
+        .entry-keywords {{ font-size: {body_size}pt; color: #555; }}
+        .professional-summary {{ margin-top: 10px; margin-bottom: {section_margin_pt}pt; padding: 15px 15px; font-size: {body_size}pt; line-height: {line_height}; color: #333; background-color: #f8f9fa; border-radius: 4px; border-bottom: 3px solid {accent_color}; text-align: justify; }}
         .professional-summary p {{ margin: 0; }}
+        /* Plain divs with a manual bullet + hanging indent, NOT native
+           <ul>/<li>. ReportLab's list Flowable has its own internal
+           spacing hardcoded into the bullet mechanism that CSS margin/
+           padding cannot fully override — confirmed by measurement. A
+           plain div's spacing is 100% ours to control. */
         .bullet-line {{ margin: 0; padding: 0; padding-left: 14pt; text-indent: -14pt; line-height: {line_height}; }}
         code {{ background: #f4f4f4; padding: 2px 4px; font-family: monospace; }}
 
-        /* Social links: no extra margins */
-        .social-links a {{ display: block; margin-bottom: 0pt; font-size: {body_size}pt; color: {primary_color}; text-decoration: none; }}
+        /* Social links: stacked block links replace the old flex column */
+        .social-links a {{ display: block; margin-bottom: 6px; font-size: {body_size}pt; color: {primary_color}; text-decoration: none; }}
     </style>
     </head>
     <body>
@@ -2541,54 +2512,13 @@ with col_edit_area:
                 sidebar_position=sidebar_position if layout_mode == "Two Columns" else "Right",
                 layout_mode=layout_mode, primary_color=primary_color, accent_color=accent_color,
                 font_family=font_family, heading_size=heading_size, body_size=body_size,
-                line_height=line_height, margin_size=margin_size,
-                main_col_bg=main_col_bg, column_gap_px=column_gap_px, side_col_bg=side_col_bg
+                line_height=line_height, margin_size=margin_size
             )
             pdf_buffer = BytesIO()
             pisa_status = pisa.CreatePDF(src=rendered_html, dest=pdf_buffer, encoding="UTF-8")
             pdf_bytes = b"" if pisa_status.err else pdf_buffer.getvalue()
             if pisa_status.err:
                 st.error("⚠️ PDF generation failed — check the console/logs for xhtml2pdf errors.")
-
-        # -------- ONE-PAGE FEEDBACK --------
-        # pymupdf already ships with this app (used for the preview), so we
-        # can report the real, exact page count rather than guessing.
-        if pdf_bytes:
-            try:
-                _doc = pymupdf.open(stream=pdf_bytes, filetype="pdf")
-                page_count = len(_doc)
-            except Exception:
-                page_count = None
-
-            if page_count and page_count > 1:
-                st.warning(f"📄 Your CV is currently **{page_count} pages**.")
-
-                main_load = analyze_main_column_load(export_cv_data, layout_mode)
-                total_main_chars = sum(r["chars"] for r in main_load) or 1
-
-                if main_load:
-                    st.markdown("**Main column content, biggest first** (sidebar excluded — it's fixed-width and rarely the cause):")
-                    for r in main_load:
-                        share = r["chars"] / total_main_chars
-                        st.markdown(f"- `{r['chars']:>5} chars` ({share:.0%}) — **{r['name']}**")
-                    top = main_load[0]
-                    st.markdown(f"👉 **{top['name']}** is your single biggest main-column section — trimming its bullets/summary will save more space than any font or margin tweak.")
-                else:
-                    st.markdown("No main-column sections detected — the overflow is likely coming from sidebar content or header/photo sizing instead.")
-
-                with st.expander("Other things that affect page count"):
-                    st.markdown(f"""
-- **Layout mode**: `{layout_mode}` — Two Columns fits more per page than Single Column, since sections run side-by-side instead of stacking.
-- **Margins**: `{margin_size}mm` — every 1mm off each side reclaims a small but real strip on every page.
-- **Body text size**: `{body_size}pt` / **Line height**: `{line_height}` — multiply across every line, so they help, but only after content itself is trimmed.
-                    """)
-
-                if st.button("🗜️ Apply Compact One-Page Preset", use_container_width=True):
-                    st.session_state["_apply_compact_preset"] = True
-                    st.rerun()
-                st.caption("This sets margins/fonts to their most compact values and switches to Two Columns — it won't shorten your actual text, so if it's still over a page after this, trim the section flagged above.")
-            elif page_count == 1:
-                st.success("✅ Fits on one page.")
 
         download_choice = st.radio("Select data type to download:", ["Preview Data", "Saved Data"], horizontal=True)
         target_json_data = export_cv_data if download_choice == "Preview Data" else st.session_state.get("saved_version_data", export_cv_data)
