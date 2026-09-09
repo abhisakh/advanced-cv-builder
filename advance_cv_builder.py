@@ -1160,7 +1160,7 @@ with st.sidebar.expander(t("profile_photo")):
             st.image(photo_b64, caption="Current photo", width=100)
 
         col_pos, col_shape = st.columns(2)
-        position_options = ["Left Sidebar", "Header Right", "Header Left"]
+        position_options = ["Header Right", "Header Left", "Header Center", "Left Sidebar", "Right Sidebar"]
         shape_options_display = [t("circular"), t("square"), t("rectangular")]
         shape_value_map = {t("circular"): "Circular", t("square"): "Square", t("rectangular"): "Rectangular"}
         shape_display_map = {v: k for k, v in shape_value_map.items()}
@@ -1614,10 +1614,19 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
     photo_position = photo_settings.get("position", "Header Right")
     photo_in_sidebar = ""
     photo_on_left_in_header = False
+    photo_centered_in_header = False
+
     if photo_html and photo_position == "Left Sidebar" and is_two_column and sidebar_html:
-        # Sidebar exists: dock the photo at the top of it.
+        # Sidebar exists on left: dock the photo at the top of it.
         photo_in_sidebar = f'<div class="sidebar-photo" style="text-align:center;">{photo_html}</div>'
         photo_html = ""
+    elif photo_html and photo_position == "Right Sidebar" and is_two_column and sidebar_html:
+        # Sidebar exists on right: dock the photo at the top of it.
+        photo_in_sidebar = f'<div class="sidebar-photo" style="text-align:center;">{photo_html}</div>'
+        photo_html = ""
+    elif photo_html and photo_position == "Header Center":
+        # Photo centered in header (full width above name)
+        photo_centered_in_header = True
     elif photo_html and photo_position in ("Left Sidebar", "Header Left"):
         # No sidebar available (or "Header Left" explicitly chosen): put the
         # photo on the left side of the header instead.
@@ -1656,11 +1665,22 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
         f'<td class="header-photo-cell" valign="top" style="width:{header_photo_cell_width_pt}pt;">{photo_html}</td>'
         if photo_html else ''
     )
-    if photo_html and photo_on_left_in_header:
+
+    if photo_centered_in_header and photo_html:
+        # Header with centered photo above name
+        header_html = (
+            f'<table class="header-table"><tr>'
+            f'<td colspan="2" style="text-align:center; padding-bottom:10px;">{photo_html}</td>'
+            f'</tr><tr>'
+            f'{header_info_cell}'
+            f'</tr></table>'
+        )
+    elif photo_html and photo_on_left_in_header:
         header_row = header_photo_cell + header_info_cell
+        header_html = f'<table class="header-table"><tr>{header_row}</tr></table>'
     else:
         header_row = header_info_cell + header_photo_cell
-    header_html = f'<table class="header-table"><tr>{header_row}</tr></table>'
+        header_html = f'<table class="header-table"><tr>{header_row}</tr></table>'
 
     # Main layout: a 3-cell table (main | gap | sidebar) in Two Columns
     # mode, a plain div in Single Column mode.
@@ -1707,7 +1727,7 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
         /* Header: table replaces the old flexbox row (title/meta | photo) */
         .header-table {{ width: 100%; border-bottom: 3px solid {primary_color}; padding-bottom: 15px; margin-bottom: {section_margin_pt}pt; }}
         .header-info-cell {{ vertical-align: top; }}
-        .header-photo-cell {{ vertical-align: top; text-align: right; padding-left: 20px; padding-top: 10px; }}
+        .header-photo-cell {{ vertical-align: top; text-align: right; padding-left: 20px; padding-top: 10px; padding-bottom: 10px; }}
         .header-info h1 {{ font-size: {heading_size + 6}pt; color: {primary_color}; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }}
         .header-info .title {{ font-size: {body_size + 2}pt; color: {accent_color}; font-weight: bold; margin-bottom: 5px; }}
         .header-info .meta {{ font-size: {body_size - 1}pt; color: #666; line-height: 1.5; }}
