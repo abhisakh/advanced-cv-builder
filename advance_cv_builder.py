@@ -77,6 +77,7 @@ TRANSLATIONS = {
         "layout_mode": "Layout Mode",
         "two_columns": "Two Columns",
         "single_column": "Single Column",
+        "professional_layout": "Professional (Summary on Top)",
         "layout_control": "🧩 Layout & Section Control",
         "section_control_caption": "Toggle visibility and column layout:",
         "sidebar_position": "Sidebar Position",
@@ -214,6 +215,7 @@ TRANSLATIONS = {
         "layout_mode": "Layout-Modus",
         "two_columns": "Zweispaltig",
         "single_column": "Einspaltig",
+        "professional_layout": "Professionell (Zusammenfassung oben)",
         "layout_control": "🧩 Layout- & Abschnittssteuerung",
         "section_control_caption": "Sichtbarkeit und Spaltenlayout umschalten:",
         "sidebar_position": "Seitenleisten-Position",
@@ -864,6 +866,10 @@ if "cv_data" not in st.session_state:
     st.session_state.cv_data = autosaved_data.get("cv_data", {})
 if "selected_template" not in st.session_state:
     st.session_state.selected_template = "Modern"
+if "design_layout" not in st.session_state:
+    st.session_state.design_layout = "Modern Clean"
+if "layout_template_applied" not in st.session_state:
+    st.session_state.layout_template_applied = False
 if "show_ai_suggestions" not in st.session_state:
     st.session_state.show_ai_suggestions = False
 if "show_job_match" not in st.session_state:
@@ -1007,7 +1013,121 @@ with st.sidebar.expander(t("sidebar_profile"), expanded=True):
 # SIDEBAR - TEMPLATE SELECTION & DYNAMIC LAYOUT
 # ============================================================================
 
+# Design Layout Templates - Professional Presets
+DESIGN_LAYOUTS = {
+    "Modern Clean": {
+        "primary_color": "#0066cc",
+        "accent_color": "#004db3",
+        "sidebar_bg": "#f5f5f5",
+        "font_family": "Helvetica",
+        "heading_size": 13,
+        "body_size": 10,
+        "line_height": 1.4,
+        "margin_size": 12,
+        "description": "Clean modern look with light sidebar and blue accents"
+    },
+    "Professional Dark": {
+        "primary_color": "#1a1a1a",
+        "accent_color": "#ffd700",
+        "sidebar_bg": "#2d2d2d",
+        "font_family": "Georgia",
+        "heading_size": 14,
+        "body_size": 10,
+        "line_height": 1.5,
+        "margin_size": 14,
+        "description": "Elegant dark design with gold accents - perfect for executives"
+    },
+    "Academic Formal": {
+        "primary_color": "#1a3a52",
+        "accent_color": "#c41e3a",
+        "sidebar_bg": "#1a3a52",
+        "font_family": "Georgia",
+        "heading_size": 15,
+        "body_size": 10,
+        "line_height": 1.6,
+        "margin_size": 14,
+        "description": "Formal academic style with navy sidebar and traditional fonts"
+    },
+    "Minimalist": {
+        "primary_color": "#333333",
+        "accent_color": "#0088cc",
+        "sidebar_bg": "#ffffff",
+        "font_family": "Helvetica",
+        "heading_size": 12,
+        "body_size": 10,
+        "line_height": 1.3,
+        "margin_size": 10,
+        "description": "Clean minimalist design - maximum white space"
+    },
+    "Tech Modern": {
+        "primary_color": "#1e88e5",
+        "accent_color": "#43a047",
+        "sidebar_bg": "#f0f4f8",
+        "font_family": "Arial",
+        "heading_size": 13,
+        "body_size": 10,
+        "line_height": 1.4,
+        "margin_size": 12,
+        "description": "Modern tech-focused design with vibrant colors"
+    }
+}
+
+# Design Layout Selector
+with st.sidebar.expander("🎨 Design Layout Templates", expanded=True):
+    st.markdown("**Select a professional layout template below:**")
+
+    # Create layout template selector
+    selected_layout = st.selectbox(
+        "Choose a Design Layout",
+        list(DESIGN_LAYOUTS.keys()),
+        help="Select a preset template to apply professional defaults. You can customize each setting afterwards."
+    )
+
+    # Display template description
+    layout_config = DESIGN_LAYOUTS[selected_layout]
+    st.info(f"📋 {layout_config['description']}")
+
+    # Apply template button
+    if st.button("✨ Apply Template", use_container_width=True):
+        # Store template in session state
+        st.session_state.design_layout = selected_layout
+        st.session_state.layout_template_applied = True
+        st.success(f"✅ Applied '{selected_layout}' template! Customize below as needed.")
+
+    # Preview colors
+    st.markdown("**Preview:**")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown(f"**Primary Color:**")
+        st.color_value = layout_config["primary_color"]
+        st.markdown(f'<div style="background-color: {layout_config["primary_color"]}; height: 30px; border-radius: 4px;"></div>', unsafe_allow_html=True)
+    with col2:
+        st.markdown(f"**Accent Color:**")
+        st.markdown(f'<div style="background-color: {layout_config["accent_color"]}; height: 30px; border-radius: 4px;"></div>', unsafe_allow_html=True)
+
 with st.sidebar.expander(t("template_styling"), expanded=True):
+    # Get defaults from applied layout template
+    if st.session_state.get("layout_template_applied", False):
+        layout_name = st.session_state.get("design_layout", "Modern Clean")
+        layout_defaults = DESIGN_LAYOUTS[layout_name]
+        default_primary = layout_defaults["primary_color"]
+        default_accent = layout_defaults["accent_color"]
+        default_font = layout_defaults["font_family"]
+        default_heading = layout_defaults["heading_size"]
+        default_body = layout_defaults["body_size"]
+        default_line_height = layout_defaults["line_height"]
+        default_margin = layout_defaults["margin_size"]
+        st.info(f"💡 Using defaults from '{layout_name}' template. Customize as needed!")
+    else:
+        # Use CV_TEMPLATES defaults if no layout template applied
+        default_primary = CV_TEMPLATES[st.session_state.selected_template]["primary_color"]
+        default_accent = CV_TEMPLATES[st.session_state.selected_template]["accent"]
+        default_font = "Helvetica"
+        default_heading = 13
+        default_body = 10
+        default_line_height = 1.4
+        default_margin = 12
+
     st.session_state.selected_template = st.selectbox(t("select_template"), list(CV_TEMPLATES.keys()))
     selected_tpl = cast(str, st.session_state.selected_template)
     template_config = CV_TEMPLATES[selected_tpl]
@@ -1017,24 +1137,34 @@ with st.sidebar.expander(t("template_styling"), expanded=True):
     col_primary, col_accent = st.columns(2)
 
     with col_primary:
-        primary_color = st.color_picker(t("primary_color"), template_config["primary_color"])
+        primary_color = st.color_picker(t("primary_color"), default_primary)
     with col_accent:
-        accent_color = st.color_picker(t("accent_color"), template_config["accent"])
+        accent_color = st.color_picker(t("accent_color"), default_accent)
 
     st.subheader(t("typography"))
     col_font, col_size = st.columns(2)
 
     with col_font:
-        font_family = st.selectbox(t("font_family"), ["Helvetica", "Arial", "Georgia", "Times New Roman"])
+        font_family = st.selectbox(t("font_family"), ["Helvetica", "Arial", "Georgia", "Times New Roman"], index=["Helvetica", "Arial", "Georgia", "Times New Roman"].index(default_font) if default_font in ["Helvetica", "Arial", "Georgia", "Times New Roman"] else 0)
     with col_size:
-        heading_size = st.slider(t("heading_size"), 10, 16, 13)
+        heading_size = st.slider(t("heading_size"), 10, 16, default_heading)
 
-    body_size = st.slider(t("body_size"), 9, 12, 10)
-    line_height = st.slider(t("line_height"), 1.2, 1.8, 1.4, 0.1)
-    margin_size = st.slider(t("margin_size"), 8, 20, 12)
+    body_size = st.slider(t("body_size"), 9, 12, default_body)
+    line_height = st.slider(t("line_height"), 1.2, 1.8, default_line_height, 0.1)
+    margin_size = st.slider(t("margin_size"), 8, 20, default_margin)
 
-    layout_mode = st.radio(t("layout_mode"), [t("two_columns"), t("single_column")])
-    layout_mode = "Two Columns" if layout_mode == t("two_columns") else "Single Column"
+    layout_mode_selection = st.radio(
+        t("layout_mode"),
+        [t("single_column"), t("two_columns"), t("professional_layout")],
+        help="Single Column: No sidebar | Two Columns: Sidebar + Main | Professional: Summary on top, sidebar below"
+    )
+
+    if layout_mode_selection == t("single_column"):
+        layout_mode = "Single Column"
+    elif layout_mode_selection == t("two_columns"):
+        layout_mode = "Two Columns"
+    else:
+        layout_mode = "Professional Two-Column"
 
 with st.sidebar.expander("👁️ Top Header Visibility Controls", expanded=False):
     for field in ["title", "location", "phone", "email", "links"]:
@@ -1047,12 +1177,14 @@ with st.sidebar.expander("👁️ Top Header Visibility Controls", expanded=Fals
 with st.sidebar.expander(t("layout_control"), expanded=False):
     st.caption(t("section_control_caption"))
 
-    if layout_mode == "Two Columns":
+    if layout_mode == "Two Columns" or layout_mode == "Professional Two-Column":
         st.subheader("Column Configuration")
         sidebar_position = st.selectbox(t("sidebar_position"), [t("left"), t("right")])
         sidebar_position = "Left" if sidebar_position == t("left") else "Right"
         sidebar_width_pct = st.slider(t("sidebar_width"), 20, 50, 32)
         main_width_pct = 100 - sidebar_width_pct
+        if layout_mode == "Professional Two-Column":
+            st.info("📋 Summary will appear at the top in full width, sidebar and main content below.")
     else:
         sidebar_position = "Right"
         sidebar_width_pct = 0
@@ -1585,7 +1717,7 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
                 else:
                     main_html += rendered
 
-    is_two_column = (layout_mode == "Two Columns")
+    is_two_column = (layout_mode == "Two Columns" or layout_mode == "Professional Two-Column")
     main_width_pct = 100 - sidebar_width_pct if is_two_column else 100
     # Sidebar-on-left just means: swap which table cell comes first.
     sidebar_first = (sidebar_position == "Left")
@@ -1684,11 +1816,39 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
 
     # Main layout: a 3-cell table (main | gap | sidebar) in Two Columns
     # mode, a plain div in Single Column mode.
+    # Professional Two-Column mode: summary at top (full width), then sidebar + main below
     # (Old version used CSS flexbox with flex-direction row/row-reverse and
     # a `gap` property — neither of which xhtml2pdf's table engine has, so
     # we compute real point widths, including a real empty spacer column
     # for the gap, from the actual page content width.)
-    if is_two_column and side_col_html:
+
+    if layout_mode == "Professional Two-Column":
+        # Professional layout: Summary on top, then sidebar + main below
+        a4_width_mm = 210
+        content_width_pt = (a4_width_mm - 2 * margin_size) * 2.83465
+        gap_pt = 20 * 0.75  # 20px gap, converted to points
+        cols_pt = max(content_width_pt - gap_pt, 0)
+        main_pt = round(cols_pt * (main_width_pct / 100))
+        side_pt = round(cols_pt * (sidebar_width_pct / 100))
+
+        main_cell = f'<td class="main-col" valign="top" style="width:{main_pt}pt;">{main_html}</td>'
+        gap_cell = f'<td class="gap-col" valign="top" style="width:{round(gap_pt)}pt;"></td>'
+        side_cell = f'<td class="side-col-cell" valign="top" style="width:{side_pt}pt;">{side_col_html}</td>'
+
+        # Place sidebar on left
+        content_row = side_cell + gap_cell + main_cell
+
+        # Summary at top (full width), then sidebar + main below
+        layout_html = f'''
+        <table class="layout-table" style="width:100%;">
+            <tr><td colspan="3" style="padding-bottom:10pt;">{header_summary_section}</td></tr>
+            <tr>{content_row}</tr>
+        </table>
+        '''
+        # Remove summary from header so it doesn't appear twice
+        header_summary_section = ""
+
+    elif is_two_column and side_col_html:
         a4_width_mm = 210
         content_width_pt = (a4_width_mm - 2 * margin_size) * 2.83465
         gap_pt = 20 * 0.75  # 20px gap, converted to points
@@ -2528,8 +2688,8 @@ with col_edit_area:
 
             rendered_html = generate_cv_html(
                 export_cv_data, CV_TEMPLATES[selected_template_key], photo_settings,
-                sidebar_width_pct=sidebar_width_pct if layout_mode == "Two Columns" else 32,
-                sidebar_position=sidebar_position if layout_mode == "Two Columns" else "Right",
+                sidebar_width_pct=sidebar_width_pct if (layout_mode == "Two Columns" or layout_mode == "Professional Two-Column") else 32,
+                sidebar_position=sidebar_position if (layout_mode == "Two Columns" or layout_mode == "Professional Two-Column") else "Right",
                 layout_mode=layout_mode, primary_color=primary_color, accent_color=accent_color,
                 font_family=font_family, heading_size=heading_size, body_size=body_size,
                 line_height=line_height, margin_size=margin_size
