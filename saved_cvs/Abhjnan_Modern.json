@@ -26,7 +26,7 @@
         "_uid": "ab453e66",
         "name": "",
         "description": "",
-        "keywords": "* Zuverl\u00e4ssigkeit \n* Zielstrebige arbeitsweise \n* Hohe Auffassungsgabe \n* Teamf\u00e4hig \n* Koordination \n* Kreativ "
+        "keywords": "\u2022 Zuverl\u00e4ssigkeit\n\u2022 Zielstrebige Arbeitsweise\n\u2022 Hohe Auffassungsgabe\n\u2022 Teamf\u00e4higkeit\n\u2022 Organisationsf\u00e4higkeit\n\u2022 Kreativit\u00e4t"
       }
     ],
     "Interests": [
@@ -34,7 +34,7 @@
         "_uid": "6c9eadf9",
         "name": "",
         "description": "",
-        "keywords": "* Zeichnen \n* Programmieren \n* Basteln \n* Schwimmen \n* Analysis der Mathematik \n* Psychologie "
+        "keywords": "\u2022 Zeichnen\n\u2022 Programmieren\n\u2022 Basteln\n\u2022 Schwimmen\n\u2022 Mathematische Analysis\n\u2022 Psychologie"
       }
     ],
     "Certifications": [],
@@ -42,17 +42,17 @@
     "Languages": [
       {
         "_uid": "4330a83e",
-        "name": "Deutsch ",
-        "description": "Seit 10 Jahre"
+        "name": "Deutsch",
+        "description": "Flie\u00dfend"
       },
       {
         "_uid": "90a7e5ee",
-        "name": "Englische",
-        "description": "Gute Kenntnisse aus der Schule und Privat"
+        "name": "Englisch",
+        "description": "Flie\u00dfend"
       },
       {
         "_uid": "d65b8bb7",
-        "name": "Bengaisch",
+        "name": "Bengalisch",
         "description": "Muttersprache"
       }
     ],
@@ -68,7 +68,7 @@
         "link_label": "Visit Website",
         "summary": "",
         "bullets": [
-          "Programmierung:Python (Grundkenntnisse)",
+          "Programmierung: Python (Grundkenntnisse)",
           "Datenbanken: SQL (Datenbankabfragen)"
         ],
         "bold_company": false,
@@ -86,7 +86,7 @@
         "link_label": "Visit Website",
         "summary": "",
         "bullets": [
-          "Word/powerpoint  (gute kenntnisse seit der 2.klasse)"
+          "Word / Powerpoint  (gute kenntnisse seit der 2. klasse)"
         ],
         "bold_company": false,
         "italic_company": true,
@@ -96,9 +96,9 @@
     "Education": [
       {
         "_uid": "0d8805e5",
-        "degree": "Grundschule Gro\u00df Flottbek",
-        "school": "Grundschule ",
-        "graduation": "SEP.2016 - JUN.2020 ",
+        "degree": "Grundschule ",
+        "school": "Grundschule Gro\u00df Flottbek",
+        "graduation": "SEP. 2016 - JUN. 2020 ",
         "gpa": "",
         "address": "Osdorfer Weg 24, Hamburg",
         "highlights": "",
@@ -108,12 +108,12 @@
       },
       {
         "_uid": "854c49d7",
-        "degree": "Lise Meitner Gymnasium",
-        "school": "Weiterf\u00fchrende Schule ",
-        "graduation": "SEP.2020 - JUN.2028 ",
+        "degree": "Gymnasium",
+        "school": "Lise Meitner Gymnasium",
+        "graduation": "SEP. 2020 - JUN. 2028 ",
         "gpa": "",
         "address": "Knabeweg 3, Hamburg  ",
-        "highlights": "* Gymnasiale Oberstufe (11.klasse) \n* Physikprofil: Physik, Mathe und Chemie \n* Weitere F\u00e4cher: Informatik, Englisch   \n* Angestrebter Abschluss 2028    \n* Stellvertretender Klassensprecher   ",
+        "highlights": "* Gymnasiale Oberstufe (11. Klasse)\n\u2022 Physikprofil: Physik, Mathematik und Chemie\n\u2022 Weitere F\u00e4cher: Informatik, Englisch\n\u2022 Angestrebter Abschluss: Abitur 2028\n\u2022 Stellvertretender Klassensprecher",
         "bold_school": true,
         "italic_school": false,
         "school_size": 12
@@ -122,29 +122,29 @@
     "Projects": [
       {
         "_uid": "35444388",
-        "name": "Natex  ",
-        "description": "Br\u00fcckenbau aus Spaghetti ",
+        "name": "Natex: Br\u00fcckenbau aus Spaghetti",
+        "description": "",
         "date_range": "",
         "website": "",
         "link_label": "View Project",
-        "summary": "* Durchf\u00fchrung: 8.klasse im Nawi unterricht \n* Kenntnisse: aus der Physik und Ingenieurwesen entnommen \n* Anforderungen: nur spagethi, Kleber und Mathematische Ans\u00e4tze "
+        "summary": "* Durchf\u00fchrung: 8. Klasse im NaWi-Unterricht\n\u2022 Kenntnisse aus Physik und Ingenieurwesen angewendet\n\u2022 Anforderungen: Nur Spaghetti, Kleber und mathematische Ans\u00e4tze"
       }
     ],
     "Work Experience": [
       {
         "_uid": "c652e4a8",
-        "company": "Erstes Betriebspraktikum",
-        "title": "DESY",
-        "date_range": "JUN.2025 - JUL.2025 ",
+        "company": "DESY",
+        "title": "Erstes Betriebspraktikum",
+        "date_range": "JUN. 2025 - JUL. 2025 ",
         "location": "",
         "address": "Notkestra\u00dfe 85, Hamburg",
         "website": "",
         "link_label": "Visit Website",
         "summary": "",
         "bullets": [
-          "Montage und Fertigung.",
-          "Messtechnik und Versuchsdurchf\u00fchrung: Strahlf\u00fchrung (Petra III) , Umgang mit einem Kryostaten.",
-          "Physikalische Experimente: Gefrieren von Wasser durch Unterdruck."
+          "Montage und Fertigung",
+          "Messtechnik und Versuchsdurchf\u00fchrung: Strahlf\u00fchrung (Petra III), Umgang mit einem Kryostaten",
+          "Physikalische Experimente: Gefrieren von Wasser durch Unterdruck"
         ],
         "bold_company": true,
         "italic_company": false,
@@ -154,7 +154,12 @@
     "Professional Summary": {
       "text": "Gymnasiast der 11. Klasse mit Leidenschaft f\u00fcr Physik, Mathematik und Chemie. Praktische Erfahrung durch Praktikum bei DESY gesammelt. Grundkenntnisse in Python und SQL-Programmierung. Zuverl\u00e4ssiger und teamf\u00e4higer Lerner mit guter Auffassungsgabe und kreativen L\u00f6sungsans\u00e4tzen. Interessiert an Wissenschaft, Technik und praktischer Anwendung von Wissen."
     },
-    "My Experience": "This is my interest"
+    "My Experience": "This is my interest",
+    "Programmierkenntnisse": "Python\nSQL",
+    "Softwarekenntnisse": "Microsoft Office \n(Word, PowerPoint,Excel)",
+    "Software ": "Microsoft Office \n(Word, PowerPoint, Excel)",
+    "Programme": "",
+    "IT-Kenntnisse": "Python\nSQL"
   },
   "full_name": "Abhijnan Sarma",
   "title": "",
@@ -165,8 +170,14 @@
   "relocation": "",
   "linkedin_url": "",
   "summary": "Gymnasiast der 11. Klasse mit Leidenschaft f\u00fcr Physik, Mathematik und Chemie. Praktische Erfahrung durch Praktikum bei DESY gesammelt. Grundkenntnisse in Python und SQL-Programmierung. Zuverl\u00e4ssiger und teamf\u00e4higer Lerner mit guter Auffassungsgabe und kreativen L\u00f6sungsans\u00e4tzen. Interessiert an Wissenschaft, Technik und praktischer Anwendung von Wissen.",
-  "custom_sections": [],
-  "custom_section_types": {},
+  "custom_sections": [
+    "Software ",
+    "IT-Kenntnisse"
+  ],
+  "custom_section_types": {
+    "Software ": "Technical Skills",
+    "IT-Kenntnisse": "Technical Skills"
+  },
   "section_visibility": {
     "Profiles & Links": false,
     "Technical Skills": false,
@@ -181,7 +192,12 @@
     "Languages": true,
     "Work Experience": true,
     "Professional Summary": true,
-    "My Experience": true
+    "My Experience": true,
+    "Programmierkenntnisse": true,
+    "Softwarekenntnisse": true,
+    "Software ": true,
+    "Programme": true,
+    "IT-Kenntnisse": true
   },
   "section_placement": {
     "Profiles & Links": "Sidebar",
@@ -196,8 +212,13 @@
     "Education": "Main Column",
     "Projects": "Main Column",
     "Work Experience": "Main Column",
-    "Professional Summary": "Below Personal Info (Header)",
-    "My Experience": "Main Column"
+    "Professional Summary": "Main Column",
+    "My Experience": "Main Column",
+    "Programmierkenntnisse": "Sidebar",
+    "Softwarekenntnisse": "Sidebar",
+    "Software ": "Sidebar",
+    "Programme": "Sidebar",
+    "IT-Kenntnisse": "Sidebar"
   },
   "section_order": [
     "Professional Summary",
@@ -212,7 +233,9 @@
     "Awards",
     "Strengths",
     "Interests",
-    "Languages"
+    "Languages",
+    "Software ",
+    "IT-Kenntnisse"
   ],
   "photo_data": {
     "show_photo": true,
