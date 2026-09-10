@@ -1073,8 +1073,8 @@ DESIGN_LAYOUTS = {
 }
 
 # Design Layout Selector
-with st.sidebar.expander("🎨 Design Layout Templates", expanded=True):
-    st.markdown("**Select a professional layout template below:**")
+with st.sidebar.expander("🎨 Design Theme (Colors & Fonts)", expanded=True):
+    st.markdown("**How should it look?** (Page structure is set separately below in 🧱 Layout Structure)")
 
     # Create layout template selector
     selected_layout = st.selectbox(
@@ -1153,18 +1153,44 @@ with st.sidebar.expander(t("template_styling"), expanded=True):
     line_height = st.slider(t("line_height"), 1.2, 1.8, default_line_height, 0.1)
     margin_size = st.slider(t("margin_size"), 8, 20, default_margin)
 
-    layout_mode_selection = st.radio(
-        t("layout_mode"),
-        [t("single_column"), t("two_columns"), t("professional_layout")],
-        help="Single Column: No sidebar | Two Columns: Sidebar + Main | Professional: Summary on top, sidebar below"
+with st.sidebar.expander("🧱 Layout Structure", expanded=True):
+    st.markdown("**How should the page be organized?** (Colors/fonts are set separately above ☝️)")
+
+    layout_structure = st.radio(
+        "Choose Layout Structure",
+        ["Full Width", "Sidebar Left", "Sidebar Right"],
+        format_func=lambda x: {
+            "Full Width": "📄 Full Width — no sidebar, everything stacked",
+            "Sidebar Left": "◧ Sidebar Left — photo, name & contact info on the LEFT",
+            "Sidebar Right": "◨ Sidebar Right — photo, name & contact info on the RIGHT",
+        }[x],
+        help=(
+            "Full Width: single column, no sidebar.\n"
+            "Sidebar Left/Right: photo + name + contact + skills live in the sidebar, "
+            "Professional Summary sits full-width at the very top, and Experience/Education/"
+            "Projects sit in the main column next to the sidebar."
+        ),
     )
 
-    if layout_mode_selection == t("single_column"):
+    if layout_structure == "Full Width":
         layout_mode = "Single Column"
-    elif layout_mode_selection == t("two_columns"):
-        layout_mode = "Two Columns"
+        sidebar_position = "Right"
+        sidebar_width_pct = 0
+        main_width_pct = 100
     else:
         layout_mode = "Professional Two-Column"
+        sidebar_position = "Left" if layout_structure == "Sidebar Left" else "Right"
+        sidebar_width_pct = st.slider(t("sidebar_width"), 20, 50, 32)
+        main_width_pct = 100 - sidebar_width_pct
+        st.caption(
+            f"💡 Professional Summary appears at the top in full width. "
+            f"Photo/Name/Contact + skills go in the {sidebar_position.lower()} sidebar below it."
+        )
+        st.caption(
+            "👉 Tip: In 🖼️ Profile Photo (below), set Position to "
+            f"'{'Left Sidebar' if sidebar_position == 'Left' else 'Right Sidebar'}' "
+            "so the photo docks into the sidebar."
+        )
 
 with st.sidebar.expander("👁️ Top Header Visibility Controls", expanded=False):
     for field in ["title", "location", "phone", "email", "links"]:
@@ -1176,19 +1202,7 @@ with st.sidebar.expander("👁️ Top Header Visibility Controls", expanded=Fals
 
 with st.sidebar.expander(t("layout_control"), expanded=False):
     st.caption(t("section_control_caption"))
-
-    if layout_mode == "Two Columns" or layout_mode == "Professional Two-Column":
-        st.subheader("Column Configuration")
-        sidebar_position = st.selectbox(t("sidebar_position"), [t("left"), t("right")])
-        sidebar_position = "Left" if sidebar_position == t("left") else "Right"
-        sidebar_width_pct = st.slider(t("sidebar_width"), 20, 50, 32)
-        main_width_pct = 100 - sidebar_width_pct
-        if layout_mode == "Professional Two-Column":
-            st.info("📋 Summary will appear at the top in full width, sidebar and main content below.")
-    else:
-        sidebar_position = "Right"
-        sidebar_width_pct = 0
-        main_width_pct = 100
+    st.caption(f"📐 Current structure: **{layout_structure}** (change this in 🧱 Layout Structure above)")
 
     available_sections = list(dict.fromkeys(DEFAULT_SECTIONS + st.session_state.custom_sections))
 
@@ -1297,10 +1311,21 @@ with st.sidebar.expander(t("profile_photo")):
         shape_value_map = {t("circular"): "Circular", t("square"): "Square", t("rectangular"): "Rectangular"}
         shape_display_map = {v: k for k, v in shape_value_map.items()}
 
+        # Suggest the matching sidebar slot as the default when a sidebar
+        # layout is active and no position has been explicitly saved yet.
+        suggested_position = pd.get("position")
+        if not suggested_position:
+            if layout_structure == "Sidebar Left":
+                suggested_position = "Left Sidebar"
+            elif layout_structure == "Sidebar Right":
+                suggested_position = "Right Sidebar"
+            else:
+                suggested_position = "Header Right"
+
         with col_pos:
             pd["position"] = st.selectbox(
                 t("position"), position_options,
-                index=position_options.index(pd.get("position", "Header Right")) if pd.get("position", "Header Right") in position_options else 0,
+                index=position_options.index(suggested_position) if suggested_position in position_options else 0,
                 key="photo_position_select"
             )
         with col_shape:
@@ -1748,11 +1773,20 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
     photo_on_left_in_header = False
     photo_centered_in_header = False
 
-    if photo_html and photo_position == "Left Sidebar" and is_two_column and sidebar_html:
+    # In "Sidebar Left"/"Sidebar Right" structure (layout_mode ==
+    # "Professional Two-Column"), the whole personal-info block (photo +
+    # name + title + contact) belongs in the sidebar together — that's the
+    # entire point of choosing that structure. So we override whatever the
+    # Profile Photo position dropdown says and force it into the matching
+    # sidebar, rather than leaving it stuck in a separate top header.
+    if layout_mode == "Professional Two-Column":
+        photo_position = "Left Sidebar" if sidebar_position == "Left" else "Right Sidebar"
+
+    if photo_html and photo_position == "Left Sidebar" and is_two_column:
         # Sidebar exists on left: dock the photo at the top of it.
         photo_in_sidebar = f'<div class="sidebar-photo" style="text-align:center;">{photo_html}</div>'
         photo_html = ""
-    elif photo_html and photo_position == "Right Sidebar" and is_two_column and sidebar_html:
+    elif photo_html and photo_position == "Right Sidebar" and is_two_column:
         # Sidebar exists on right: dock the photo at the top of it.
         photo_in_sidebar = f'<div class="sidebar-photo" style="text-align:center;">{photo_html}</div>'
         photo_html = ""
@@ -1763,8 +1797,6 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
         # No sidebar available (or "Header Left" explicitly chosen): put the
         # photo on the left side of the header instead.
         photo_on_left_in_header = True
-
-    side_col_html = f'<div class="side-col">{photo_in_sidebar}{sidebar_html}</div>' if (is_two_column and (sidebar_html or photo_in_sidebar)) else ''
 
     # Build meta line dynamically from header visibility checkboxes
     meta_parts = []
@@ -1783,36 +1815,54 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
     if st.session_state.header_visibility.get("links", True) and cv_data.get("linkedin_url"):
         top_links_html = f'<div class="meta"><a href="{cv_data["linkedin_url"]}" target="_blank">LinkedIn Profile</a></div>'
 
-    # Header: a 2-cell table (info | photo), order swapped for "photo on the left".
-    # (Old version used CSS flexbox, which xhtml2pdf doesn't support.)
-    header_info_cell = (
-        f'<td class="header-info-cell" valign="top"><div class="header-info">'
-        f'<h1>{full_name}</h1>{title_html}{meta_html}{top_links_html}</div></td>'
-    )
-    # Explicit width (photo width + padding), not a %-based "shrink to fit" —
-    # xhtml2pdf's table solver takes percentage widths literally and will
-    # crash (negative available width) if real content doesn't fit inside it.
-    header_photo_cell_width_pt = round((photo_settings["width"] + 20) * 0.75)
-    header_photo_cell = (
-        f'<td class="header-photo-cell" valign="top" style="width:{header_photo_cell_width_pt}pt;">{photo_html}</td>'
-        if photo_html else ''
-    )
-
-    if photo_centered_in_header and photo_html:
-        # Header with centered photo above name
-        header_html = (
-            f'<table class="header-table"><tr>'
-            f'<td colspan="2" style="text-align:center; padding-bottom:10px;">{photo_html}</td>'
-            f'</tr><tr>'
-            f'{header_info_cell}'
-            f'</tr></table>'
+    if layout_mode == "Professional Two-Column":
+        # Sidebar Left/Right structure: name + title + contact belong in the
+        # sidebar together with the photo, not in a separate top header —
+        # that's the whole point of this structure.
+        sidebar_personal_info = (
+            f'<div class="sidebar-personal-info">'
+            f'<div class="sidebar-name">{full_name}</div>'
+            f'{title_html}{meta_html}{top_links_html}'
+            f'</div>'
         )
-    elif photo_html and photo_on_left_in_header:
-        header_row = header_photo_cell + header_info_cell
-        header_html = f'<table class="header-table"><tr>{header_row}</tr></table>'
+        side_col_html = (
+            f'<div class="side-col">{photo_in_sidebar}{sidebar_personal_info}{sidebar_html}</div>'
+            if is_two_column else ''
+        )
+        header_html = ""  # No separate top header — everything moved to the sidebar
     else:
-        header_row = header_info_cell + header_photo_cell
-        header_html = f'<table class="header-table"><tr>{header_row}</tr></table>'
+        side_col_html = f'<div class="side-col">{photo_in_sidebar}{sidebar_html}</div>' if (is_two_column and (sidebar_html or photo_in_sidebar)) else ''
+
+        # Header: a 2-cell table (info | photo), order swapped for "photo on the left".
+        # (Old version used CSS flexbox, which xhtml2pdf doesn't support.)
+        header_info_cell = (
+            f'<td class="header-info-cell" valign="top"><div class="header-info">'
+            f'<h1>{full_name}</h1>{title_html}{meta_html}{top_links_html}</div></td>'
+        )
+        # Explicit width (photo width + padding), not a %-based "shrink to fit" —
+        # xhtml2pdf's table solver takes percentage widths literally and will
+        # crash (negative available width) if real content doesn't fit inside it.
+        header_photo_cell_width_pt = round((photo_settings["width"] + 20) * 0.75)
+        header_photo_cell = (
+            f'<td class="header-photo-cell" valign="top" style="width:{header_photo_cell_width_pt}pt;">{photo_html}</td>'
+            if photo_html else ''
+        )
+
+        if photo_centered_in_header and photo_html:
+            # Header with centered photo above name
+            header_html = (
+                f'<table class="header-table"><tr>'
+                f'<td colspan="2" style="text-align:center; padding-bottom:10px;">{photo_html}</td>'
+                f'</tr><tr>'
+                f'{header_info_cell}'
+                f'</tr></table>'
+            )
+        elif photo_html and photo_on_left_in_header:
+            header_row = header_photo_cell + header_info_cell
+            header_html = f'<table class="header-table"><tr>{header_row}</tr></table>'
+        else:
+            header_row = header_info_cell + header_photo_cell
+            header_html = f'<table class="header-table"><tr>{header_row}</tr></table>'
 
     # Main layout: a 3-cell table (main | gap | sidebar) in Two Columns
     # mode, a plain div in Single Column mode.
@@ -1822,8 +1872,13 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
     # we compute real point widths, including a real empty spacer column
     # for the gap, from the actual page content width.)
 
+    professional_summary_top = ""  # Summary for top in Professional layout
+
     if layout_mode == "Professional Two-Column":
         # Professional layout: Summary on top, then sidebar + main below
+        professional_summary_top = header_summary_section  # Move summary to top
+        header_summary_section = ""  # Clear header summary
+
         a4_width_mm = 210
         content_width_pt = (a4_width_mm - 2 * margin_size) * 2.83465
         gap_pt = 20 * 0.75  # 20px gap, converted to points
@@ -1841,12 +1896,10 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
         # Summary at top (full width), then sidebar + main below
         layout_html = f'''
         <table class="layout-table" style="width:100%;">
-            <tr><td colspan="3" style="padding-bottom:10pt;">{header_summary_section}</td></tr>
+            <tr><td colspan="3" style="padding-bottom:10pt;">{professional_summary_top}</td></tr>
             <tr>{content_row}</tr>
         </table>
         '''
-        # Remove summary from header so it doesn't appear twice
-        header_summary_section = ""
 
     elif is_two_column and side_col_html:
         a4_width_mm = 210
@@ -1891,7 +1944,8 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
         .header-info h1 {{ font-size: {heading_size + 6}pt; color: {primary_color}; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }}
         .header-info .title {{ font-size: {body_size + 2}pt; color: {accent_color}; font-weight: bold; margin-bottom: 5px; }}
         .header-info .meta {{ font-size: {body_size - 1}pt; color: #666; line-height: 1.5; }}
-        .profile-photo {{ border: 2px solid {primary_color}; padding: 8px; margin-top: 5px; }}</ antml:parameter>
+        .profile-photo {{ border: 2px solid {primary_color}; padding: 8px; margin-top: 5px; }}
+        .sidebar-photo {{ margin-bottom: 14pt; }}
         .summary {{ font-size: {body_size}pt; margin-bottom: {section_margin_pt}pt; line-height: 1.6; color: #333; }}
 
         /* Main/sidebar layout: table replaces the old flexbox row */
@@ -1904,6 +1958,11 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
            is not. */
         .side-col-cell {{ vertical-align: top; background-color: {template_config["sidebar_bg"]}; padding: 12px; padding-top: 15px; }}
         .side-col {{ }}
+        .sidebar-personal-info {{ margin-bottom: 14pt; padding-bottom: 10pt; border-bottom: 1px solid rgba(0,0,0,0.15); }}
+        .sidebar-name {{ font-size: {heading_size + 3}pt; color: {primary_color}; font-weight: bold; margin-bottom: 4px; line-height: 1.2; }}
+        .sidebar-personal-info .title {{ font-size: {body_size + 1}pt; color: {accent_color}; font-weight: bold; margin-bottom: 6px; }}
+        .sidebar-personal-info .meta {{ font-size: {body_size - 1}pt; line-height: 1.5; }}
+        .sidebar-personal-info a {{ color: {primary_color}; }}
 
         .section {{ margin-bottom: {section_margin_pt}pt; page-break-inside: avoid; }}
         .section h2 {{ font-size: {heading_size}pt; color: {primary_color}; border-bottom: 2px solid {accent_color}; padding-bottom: 4px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }}
