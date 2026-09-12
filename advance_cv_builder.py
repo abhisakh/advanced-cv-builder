@@ -81,6 +81,45 @@ TRANSLATIONS = {
         "layout_control": "🧩 Layout & Section Control",
         "section_control_caption": "Toggle visibility and column layout:",
         "sidebar_position": "Sidebar Position",
+        "design_theme_header": "🎨 Design Theme (Colors & Fonts)",
+        "design_theme_subtitle": "**How should it look?** (Page structure is set separately below in 🧱 Layout Structure)",
+        "design_theme_select_label": "Choose a Design Layout",
+        "design_theme_help": "Select a preset template to apply professional defaults. You can customize each setting afterwards.",
+        "design_theme_apply_btn": "✨ Apply Template",
+        "design_theme_applied": "✅ Applied '{name}' template! Customize below as needed.",
+        "design_theme_preview_label": "**Preview:**",
+        "design_theme_primary_label": "**Primary Color:**",
+        "design_theme_accent_label": "**Accent Color:**",
+        "layout_structure_header": "🧱 Layout Structure",
+        "layout_structure_subtitle": "**How should the page be organized?** (Colors/fonts are set separately above ☝️)",
+        "layout_structure_select_label": "Choose Layout Structure",
+        "layout_structure_full_width": "📄 Full Width — no sidebar, everything stacked",
+        "layout_structure_sidebar_left": "◧ Sidebar Left — photo, name & contact info on the LEFT",
+        "layout_structure_sidebar_right": "◨ Sidebar Right — photo, name & contact info on the RIGHT",
+        "layout_structure_help": (
+            "Full Width: single column, no sidebar.\n"
+            "Sidebar Left/Right: photo + name + contact + skills live in the sidebar, "
+            "Professional Summary sits full-width at the very top, and Experience/Education/"
+            "Projects sit in the main column next to the sidebar."
+        ),
+        "layout_structure_caption1": "💡 Professional Summary appears at the top in full width. Photo/Name/Contact + skills go in the {side} sidebar below it.",
+        "layout_structure_caption2": "👉 Tip: In 🖼️ Profile Photo (below), set Position to '{pos}' so the photo docks into the sidebar.",
+        "layout_structure_current": "📐 Current structure: **{structure}** (change this in 🧱 Layout Structure above)",
+        "design_modern_clean": "Modern Clean",
+        "design_professional_dark": "Professional Dark",
+        "design_academic_formal": "Academic Formal",
+        "design_minimalist": "Minimalist",
+        "design_tech_modern": "Tech Modern",
+        "design_desc_modern_clean": "Clean modern look with light sidebar and blue accents",
+        "design_desc_professional_dark": "Elegant dark design with gold accents - perfect for executives",
+        "design_desc_academic_formal": "Formal academic style with navy sidebar and traditional fonts",
+        "design_desc_minimalist": "Clean minimalist design - maximum white space",
+        "design_desc_tech_modern": "Modern tech-focused design with vibrant colors",
+        "photo_pos_header_right": "Header Right",
+        "photo_pos_header_left": "Header Left",
+        "photo_pos_header_center": "Header Center",
+        "photo_pos_left_sidebar": "Left Sidebar",
+        "photo_pos_right_sidebar": "Right Sidebar",
         "left": "Left",
         "right": "Right",
         "sidebar_width": "Sidebar Width (%)",
@@ -219,6 +258,45 @@ TRANSLATIONS = {
         "layout_control": "🧩 Layout- & Abschnittssteuerung",
         "section_control_caption": "Sichtbarkeit und Spaltenlayout umschalten:",
         "sidebar_position": "Seitenleisten-Position",
+        "design_theme_header": "🎨 Design-Thema (Farben & Schriftarten)",
+        "design_theme_subtitle": "**Wie soll es aussehen?** (Die Seitenstruktur wird separat weiter unten unter 🧱 Layout-Struktur festgelegt)",
+        "design_theme_select_label": "Design-Vorlage wählen",
+        "design_theme_help": "Wähle eine Vorlage für professionelle Standardwerte. Du kannst danach jede Einstellung anpassen.",
+        "design_theme_apply_btn": "✨ Vorlage anwenden",
+        "design_theme_applied": "✅ Vorlage '{name}' angewendet! Passe unten weiter an, falls gewünscht.",
+        "design_theme_preview_label": "**Vorschau:**",
+        "design_theme_primary_label": "**Primärfarbe:**",
+        "design_theme_accent_label": "**Akzentfarbe:**",
+        "layout_structure_header": "🧱 Layout-Struktur",
+        "layout_structure_subtitle": "**Wie soll die Seite aufgebaut sein?** (Farben/Schriftarten werden oben ☝️ separat festgelegt)",
+        "layout_structure_select_label": "Layout-Struktur wählen",
+        "layout_structure_full_width": "📄 Volle Breite — keine Seitenleiste, alles gestapelt",
+        "layout_structure_sidebar_left": "◧ Seitenleiste links — Foto, Name & Kontakt LINKS",
+        "layout_structure_sidebar_right": "◨ Seitenleiste rechts — Foto, Name & Kontakt RECHTS",
+        "layout_structure_help": (
+            "Volle Breite: einspaltig, keine Seitenleiste.\n"
+            "Seitenleiste links/rechts: Foto + Name + Kontakt + Fähigkeiten stehen in der Seitenleiste, "
+            "die Zusammenfassung erscheint ganz oben über die volle Breite, und Berufserfahrung/Ausbildung/"
+            "Projekte stehen in der Hauptspalte neben der Seitenleiste."
+        ),
+        "layout_structure_caption1": "💡 Die Zusammenfassung erscheint oben über die volle Breite. Foto/Name/Kontakt + Fähigkeiten stehen in der {side} Seitenleiste darunter.",
+        "layout_structure_caption2": "👉 Tipp: Stelle bei 🖼️ Profilfoto (weiter unten) die Position auf '{pos}', damit das Foto in der Seitenleiste andockt.",
+        "layout_structure_current": "📐 Aktuelle Struktur: **{structure}** (oben unter 🧱 Layout-Struktur änderbar)",
+        "design_modern_clean": "Modern & Klar",
+        "design_professional_dark": "Professionell Dunkel",
+        "design_academic_formal": "Akademisch Formell",
+        "design_minimalist": "Minimalistisch",
+        "design_tech_modern": "Tech Modern",
+        "design_desc_modern_clean": "Klares modernes Design mit heller Seitenleiste und blauen Akzenten",
+        "design_desc_professional_dark": "Elegantes dunkles Design mit Gold-Akzenten - ideal für Führungskräfte",
+        "design_desc_academic_formal": "Formeller akademischer Stil mit marineblauer Seitenleiste und klassischen Schriftarten",
+        "design_desc_minimalist": "Klares minimalistisches Design - maximaler Weißraum",
+        "design_desc_tech_modern": "Modernes techniknahes Design mit lebendigen Farben",
+        "photo_pos_header_right": "Kopfzeile rechts",
+        "photo_pos_header_left": "Kopfzeile links",
+        "photo_pos_header_center": "Kopfzeile mittig",
+        "photo_pos_left_sidebar": "Seitenleiste links",
+        "photo_pos_right_sidebar": "Seitenleiste rechts",
         "left": "Links",
         "right": "Rechts",
         "sidebar_width": "Seitenleisten-Breite (%)",
@@ -1072,37 +1150,55 @@ DESIGN_LAYOUTS = {
     }
 }
 
+# Internal keys stay stable (English) so session_state storage/lookups never
+# break when the UI language changes — only the DISPLAYED label is translated.
+DESIGN_LAYOUT_NAME_KEYS = {
+    "Modern Clean": "design_modern_clean",
+    "Professional Dark": "design_professional_dark",
+    "Academic Formal": "design_academic_formal",
+    "Minimalist": "design_minimalist",
+    "Tech Modern": "design_tech_modern",
+}
+DESIGN_LAYOUT_DESC_KEYS = {
+    "Modern Clean": "design_desc_modern_clean",
+    "Professional Dark": "design_desc_professional_dark",
+    "Academic Formal": "design_desc_academic_formal",
+    "Minimalist": "design_desc_minimalist",
+    "Tech Modern": "design_desc_tech_modern",
+}
+
 # Design Layout Selector
-with st.sidebar.expander("🎨 Design Theme (Colors & Fonts)", expanded=True):
-    st.markdown("**How should it look?** (Page structure is set separately below in 🧱 Layout Structure)")
+with st.sidebar.expander(t("design_theme_header"), expanded=True):
+    st.markdown(t("design_theme_subtitle"))
 
     # Create layout template selector
     selected_layout = st.selectbox(
-        "Choose a Design Layout",
+        t("design_theme_select_label"),
         list(DESIGN_LAYOUTS.keys()),
-        help="Select a preset template to apply professional defaults. You can customize each setting afterwards."
+        format_func=lambda k: t(DESIGN_LAYOUT_NAME_KEYS[k]),
+        help=t("design_theme_help")
     )
 
     # Display template description
     layout_config = DESIGN_LAYOUTS[selected_layout]
-    st.info(f"📋 {layout_config['description']}")
+    st.info(f"📋 {t(DESIGN_LAYOUT_DESC_KEYS[selected_layout])}")
 
     # Apply template button
-    if st.button("✨ Apply Template", use_container_width=True):
+    if st.button(t("design_theme_apply_btn"), use_container_width=True):
         # Store template in session state
         st.session_state.design_layout = selected_layout
         st.session_state.layout_template_applied = True
-        st.success(f"✅ Applied '{selected_layout}' template! Customize below as needed.")
+        st.success(t("design_theme_applied").format(name=t(DESIGN_LAYOUT_NAME_KEYS[selected_layout])))
 
     # Preview colors
-    st.markdown("**Preview:**")
+    st.markdown(t("design_theme_preview_label"))
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown(f"**Primary Color:**")
+        st.markdown(t("design_theme_primary_label"))
         st.color_value = layout_config["primary_color"]
         st.markdown(f'<div style="background-color: {layout_config["primary_color"]}; height: 30px; border-radius: 4px;"></div>', unsafe_allow_html=True)
     with col2:
-        st.markdown(f"**Accent Color:**")
+        st.markdown(t("design_theme_accent_label"))
         st.markdown(f'<div style="background-color: {layout_config["accent_color"]}; height: 30px; border-radius: 4px;"></div>', unsafe_allow_html=True)
 
 with st.sidebar.expander(t("template_styling"), expanded=True):
@@ -1153,23 +1249,20 @@ with st.sidebar.expander(t("template_styling"), expanded=True):
     line_height = st.slider(t("line_height"), 1.2, 1.8, default_line_height, 0.1)
     margin_size = st.slider(t("margin_size"), 8, 20, default_margin)
 
-with st.sidebar.expander("🧱 Layout Structure", expanded=True):
-    st.markdown("**How should the page be organized?** (Colors/fonts are set separately above ☝️)")
+with st.sidebar.expander(t("layout_structure_header"), expanded=True):
+    st.markdown(t("layout_structure_subtitle"))
 
+    layout_structure_options = ["Full Width", "Sidebar Left", "Sidebar Right"]
+    layout_structure_labels = {
+        "Full Width": t("layout_structure_full_width"),
+        "Sidebar Left": t("layout_structure_sidebar_left"),
+        "Sidebar Right": t("layout_structure_sidebar_right"),
+    }
     layout_structure = st.radio(
-        "Choose Layout Structure",
-        ["Full Width", "Sidebar Left", "Sidebar Right"],
-        format_func=lambda x: {
-            "Full Width": "📄 Full Width — no sidebar, everything stacked",
-            "Sidebar Left": "◧ Sidebar Left — photo, name & contact info on the LEFT",
-            "Sidebar Right": "◨ Sidebar Right — photo, name & contact info on the RIGHT",
-        }[x],
-        help=(
-            "Full Width: single column, no sidebar.\n"
-            "Sidebar Left/Right: photo + name + contact + skills live in the sidebar, "
-            "Professional Summary sits full-width at the very top, and Experience/Education/"
-            "Projects sit in the main column next to the sidebar."
-        ),
+        t("layout_structure_select_label"),
+        layout_structure_options,
+        format_func=lambda x: layout_structure_labels[x],
+        help=t("layout_structure_help"),
     )
 
     if layout_structure == "Full Width":
@@ -1182,15 +1275,10 @@ with st.sidebar.expander("🧱 Layout Structure", expanded=True):
         sidebar_position = "Left" if layout_structure == "Sidebar Left" else "Right"
         sidebar_width_pct = st.slider(t("sidebar_width"), 20, 50, 32)
         main_width_pct = 100 - sidebar_width_pct
-        st.caption(
-            f"💡 Professional Summary appears at the top in full width. "
-            f"Photo/Name/Contact + skills go in the {sidebar_position.lower()} sidebar below it."
-        )
-        st.caption(
-            "👉 Tip: In 🖼️ Profile Photo (below), set Position to "
-            f"'{'Left Sidebar' if sidebar_position == 'Left' else 'Right Sidebar'}' "
-            "so the photo docks into the sidebar."
-        )
+        side_label = t("left") if sidebar_position == "Left" else t("right")
+        st.caption(t("layout_structure_caption1").format(side=side_label.lower()))
+        photo_pos_label = "Left Sidebar" if sidebar_position == "Left" else "Right Sidebar"
+        st.caption(t("layout_structure_caption2").format(pos=photo_pos_label))
 
 with st.sidebar.expander("👁️ Top Header Visibility Controls", expanded=False):
     for field in ["title", "location", "phone", "email", "links"]:
@@ -1202,7 +1290,12 @@ with st.sidebar.expander("👁️ Top Header Visibility Controls", expanded=Fals
 
 with st.sidebar.expander(t("layout_control"), expanded=False):
     st.caption(t("section_control_caption"))
-    st.caption(f"📐 Current structure: **{layout_structure}** (change this in 🧱 Layout Structure above)")
+    structure_display_names = {
+        "Full Width": t("layout_structure_full_width"),
+        "Sidebar Left": t("layout_structure_sidebar_left"),
+        "Sidebar Right": t("layout_structure_sidebar_right"),
+    }
+    st.caption(t("layout_structure_current").format(structure=structure_display_names.get(layout_structure, layout_structure)))
 
     available_sections = list(dict.fromkeys(DEFAULT_SECTIONS + st.session_state.custom_sections))
 
@@ -1307,6 +1400,13 @@ with st.sidebar.expander(t("profile_photo")):
 
         col_pos, col_shape = st.columns(2)
         position_options = ["Header Right", "Header Left", "Header Center", "Left Sidebar", "Right Sidebar"]
+        position_label_keys = {
+            "Header Right": "photo_pos_header_right",
+            "Header Left": "photo_pos_header_left",
+            "Header Center": "photo_pos_header_center",
+            "Left Sidebar": "photo_pos_left_sidebar",
+            "Right Sidebar": "photo_pos_right_sidebar",
+        }
         shape_options_display = [t("circular"), t("square"), t("rectangular")]
         shape_value_map = {t("circular"): "Circular", t("square"): "Square", t("rectangular"): "Rectangular"}
         shape_display_map = {v: k for k, v in shape_value_map.items()}
@@ -1325,6 +1425,7 @@ with st.sidebar.expander(t("profile_photo")):
         with col_pos:
             pd["position"] = st.selectbox(
                 t("position"), position_options,
+                format_func=lambda k: t(position_label_keys[k]),
                 index=position_options.index(suggested_position) if suggested_position in position_options else 0,
                 key="photo_position_select"
             )
@@ -1473,6 +1574,22 @@ def render_certification_items(cert_list):
     # docstring. render_single_section applies it once to everything.
     return sec_html
 
+def pdf_section_title(text: str) -> str:
+    """Build a section <h2> title for the PDF with ONE consistent marker in
+    front — always the same ■ character, never emoji.
+
+    Built-in section names (t("strengths") etc.) carry an emoji prefix for
+    the nice Streamlit sidebar UI, but the PDF's base font (Helvetica) has
+    no emoji glyphs, so each one used to render as a "missing glyph" box —
+    which happened to look like a square, but wasn't something we
+    controlled, and custom section names (typed with no emoji) got no
+    marker at all. This strips any leading emoji/symbol run from whatever
+    text comes in (built-in OR custom) and prepends the same explicit ■
+    every time, so every header — built-in or user-added — matches exactly.
+    """
+    stripped = re.sub(r'^[\U0001F000-\U0001FFFF\u2600-\u27BF\uFE0F\s]+', '', text).strip()
+    return f'■ {stripped}' if stripped else '■'
+
 def render_single_section(sec_name, sections_data, layout_mode="Two Columns", custom_sections=None, custom_section_types=None):
     sec_html = ""
     custom_sections = custom_sections or []
@@ -1483,7 +1600,7 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
         # NOTE: the old Font Awesome icons (<i class="fab fa-...">) came from
         # an external CDN stylesheet. xhtml2pdf can't fetch/render that icon
         # font, so these are now plain text links instead of icon + text.
-        sec_html += f'<div class="section"><h2>{t("profiles_links")}</h2><div class="social-links">'
+        sec_html += f'<div class="section"><h2>{pdf_section_title(t("profiles_links"))}</h2><div class="social-links">'
         if links.get("GitHub"):
             sec_html += f'<a href="{links["GitHub"]}" target="_blank">GitHub</a>'
         if links.get("LinkedIn"):
@@ -1501,7 +1618,7 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
             sec_html += f'<div class="section professional-summary"><p>{formatted_summary}</p></div>'
 
     elif sec_name == "Technical Skills" and sections_data.get("Technical Skills"):
-        sec_html += f'<div class="section"><h2>{t("tech_skills")}</h2>'
+        sec_html += f'<div class="section"><h2>{pdf_section_title(t("tech_skills"))}</h2>'
         for item in sections_data["Technical Skills"]:
             name = TextFormatter.format_inline_pdf(item.get("name", ""))
             desc = TextFormatter.format_inline_pdf(item.get("description", ""))
@@ -1515,7 +1632,7 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
         sec_html += '</div>'
 
     elif sec_name == "Soft Skills" and sections_data.get("Soft Skills"):
-        sec_html += f'<div class="section"><h2>{t("soft_skills")}</h2>'
+        sec_html += f'<div class="section"><h2>{pdf_section_title(t("soft_skills"))}</h2>'
         for item in sections_data["Soft Skills"]:
             name = TextFormatter.format_inline_pdf(item.get("name", "")).strip()
             desc = TextFormatter.format_inline_pdf(item.get("description", "")).strip()
@@ -1542,7 +1659,7 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
         sec_html += '</div>'
 
     elif sec_name == "Strengths" and sections_data.get("Strengths"):
-        sec_html += f'<div class="section"><h2>{t("strengths")}</h2>'
+        sec_html += f'<div class="section"><h2>{pdf_section_title(t("strengths"))}</h2>'
         for item in sections_data["Strengths"]:
             name = TextFormatter.format_inline_pdf(item.get("name", "")).strip()
             desc = TextFormatter.format_inline_pdf(item.get("description", "")).strip()
@@ -1569,7 +1686,7 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
         sec_html += '</div>'
 
     elif sec_name == "Interests" and sections_data.get("Interests"):
-        sec_html += f'<div class="section"><h2>{t("interests")}</h2>'
+        sec_html += f'<div class="section"><h2>{pdf_section_title(t("interests"))}</h2>'
         for item in sections_data["Interests"]:
             name = TextFormatter.format_inline_pdf(item.get("name", "")).strip()
             desc = TextFormatter.format_inline_pdf(item.get("description", "")).strip()
@@ -1598,13 +1715,13 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
         sec_html += '</div>'
 
     elif sec_name == "Experience" and sections_data.get("Experience"):
-        sec_html += f'<div class="section"><h2>{t("experience")}</h2>{render_experience_items(sections_data["Experience"])}</div>'
+        sec_html += f'<div class="section"><h2>{pdf_section_title(t("experience"))}</h2>{render_experience_items(sections_data["Experience"])}</div>'
 
     elif sec_name == "Work Experience" and sections_data.get("Work Experience"):
-        sec_html += f'<div class="section"><h2>{t("work_experience")}</h2>{render_experience_items(sections_data["Work Experience"])}</div>'
+        sec_html += f'<div class="section"><h2>{pdf_section_title(t("work_experience"))}</h2>{render_experience_items(sections_data["Work Experience"])}</div>'
 
     elif sec_name == "Education" and sections_data.get("Education"):
-        sec_html += f'<div class="section"><h2>{t("education")}</h2>'
+        sec_html += f'<div class="section"><h2>{pdf_section_title(t("education"))}</h2>'
         for edu in sections_data["Education"]:
             formatted_highlights = TextFormatter.format_html_for_pdf(edu.get("highlights", ""))
             gpa_block = f"<div class='entry-meta'>GPA: {edu.get('gpa', '')}</div>" if edu.get("gpa") else ""
@@ -1626,7 +1743,7 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
         sec_html += '</div>'
 
     elif sec_name == "Projects" and sections_data.get("Projects"):
-        sec_html += f'<div class="section"><h2>{t("projects")}</h2>'
+        sec_html += f'<div class="section"><h2>{pdf_section_title(t("projects"))}</h2>'
         for proj in sections_data["Projects"]:
             name = TextFormatter.format_inline_pdf(proj.get("name", ""))
             desc = TextFormatter.format_inline_pdf(proj.get("description", ""))
@@ -1645,10 +1762,10 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
         sec_html += '</div>'
 
     elif sec_name == "Certifications" and sections_data.get("Certifications"):
-        sec_html += f'<div class="section"><h2>{t("certifications")}</h2>{render_certification_items(sections_data["Certifications"])}</div>'
+        sec_html += f'<div class="section"><h2>{pdf_section_title(t("certifications"))}</h2>{render_certification_items(sections_data["Certifications"])}</div>'
 
     elif sec_name == "Awards" and sections_data.get("Awards"):
-        sec_html += f'<div class="section"><h2>{t("awards")}</h2>'
+        sec_html += f'<div class="section"><h2>{pdf_section_title(t("awards"))}</h2>'
         for awd in sections_data["Awards"]:
             title = TextFormatter.format_inline_pdf(awd.get("title", ""))
             awarder = TextFormatter.format_inline_pdf(awd.get("awarder", ""))
@@ -1664,7 +1781,7 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
         sec_html += '</div>'
 
     elif sec_name == "Languages" and sections_data.get("Languages"):
-        sec_html += f'<div class="section"><h2>{t("languages")}</h2>'
+        sec_html += f'<div class="section"><h2>{pdf_section_title(t("languages"))}</h2>'
         for lang in sections_data["Languages"]:
             name = TextFormatter.format_inline_pdf(lang.get("name", ""))
             desc = TextFormatter.format_inline_pdf(lang.get("description", ""))
@@ -1675,7 +1792,7 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
         sec_type = custom_section_types.get(sec_name, "Generic Text")
         custom_val = sections_data[sec_name]
 
-        sec_html += f'<div class="section"><h2>{sec_name}</h2>'
+        sec_html += f'<div class="section"><h2>{pdf_section_title(sec_name)}</h2>'
         if sec_type == "Experience Layout" and isinstance(custom_val, list):
             sec_html += render_experience_items(custom_val)
         elif sec_type == "Certification Layout" and isinstance(custom_val, list):
@@ -1690,7 +1807,7 @@ def render_single_section(sec_name, sections_data, layout_mode="Two Columns", cu
 
     return fix_entry_spacing(sec_html)
 
-def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct=32, sidebar_position="Right", layout_mode="Two Columns", primary_color=None, accent_color=None, font_family=None, heading_size=13, body_size=10, line_height=1.4, margin_size=12):
+def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct=32, sidebar_position="Right", layout_mode="Two Columns", primary_color=None, accent_color=None, font_family=None, heading_size=13, body_size=10, line_height=1.4, margin_size=12, return_parts=False):
     formatted_summary = TextFormatter.format_html_for_pdf(cv_data.get("summary", ""))
     full_name = cv_data.get("full_name", "")
     title_str = cv_data.get("title", "")
@@ -1706,6 +1823,8 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
 
     main_html = ""
     sidebar_html = ""
+    main_parts = []      # per-section chunks, so the PDF can break BETWEEN sections
+    sidebar_parts = []   # instead of only at the edge of the whole column
     professional_summary_html = ""  # Special handling for Professional Summary
 
     for sec in st.session_state.section_order:
@@ -1735,12 +1854,15 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
             )
             if layout_mode == "Single Column":
                 main_html += rendered
+                main_parts.append(rendered)
             else:
                 placement = st.session_state.section_placement.get(sec, "Main Column")
                 if placement == "Sidebar":
                     sidebar_html += rendered
+                    sidebar_parts.append(rendered)
                 else:
                     main_html += rendered
+                    main_parts.append(rendered)
 
     is_two_column = (layout_mode == "Two Columns" or layout_mode == "Professional Two-Column")
     main_width_pct = 100 - sidebar_width_pct if is_two_column else 100
@@ -1815,6 +1937,12 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
     if st.session_state.header_visibility.get("links", True) and cv_data.get("linkedin_url"):
         top_links_html = f'<div class="meta"><a href="{cv_data["linkedin_url"]}" target="_blank">LinkedIn Profile</a></div>'
 
+    # Row-parts used to build the multi-row layout table further down, so
+    # the PDF can break the page BETWEEN sections instead of only at the
+    # edge of the whole sidebar/main block (see layout_html construction).
+    sidebar_row_parts = list(sidebar_parts)
+    main_row_parts = list(main_parts)
+
     if layout_mode == "Professional Two-Column":
         # Sidebar Left/Right structure: name + title + contact belong in the
         # sidebar together with the photo, not in a separate top header —
@@ -1825,13 +1953,17 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
             f'{title_html}{meta_html}{top_links_html}'
             f'</div>'
         )
+        photo_and_info_block = f'{photo_in_sidebar}{sidebar_personal_info}'
+        sidebar_row_parts = [photo_and_info_block] + sidebar_row_parts
         side_col_html = (
-            f'<div class="side-col">{photo_in_sidebar}{sidebar_personal_info}{sidebar_html}</div>'
+            f'<div class="side-col">{photo_and_info_block}{sidebar_html}</div>'
             if is_two_column else ''
         )
         header_html = ""  # No separate top header — everything moved to the sidebar
     else:
         side_col_html = f'<div class="side-col">{photo_in_sidebar}{sidebar_html}</div>' if (is_two_column and (sidebar_html or photo_in_sidebar)) else ''
+        if photo_in_sidebar:
+            sidebar_row_parts = [photo_in_sidebar] + sidebar_row_parts
 
         # Header: a 2-cell table (info | photo), order swapped for "photo on the left".
         # (Old version used CSS flexbox, which xhtml2pdf doesn't support.)
@@ -1874,6 +2006,46 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
 
     professional_summary_top = ""  # Summary for top in Professional layout
 
+    def _build_multirow_columns(main_parts_list, side_parts_list, main_pt, side_pt, gap_pt, sidebar_on_left):
+        """Build a multi-row 3-cell table (main | gap | side).
+
+        Only the MAIN column is split one-section-per-row, so the PDF engine
+        can break the page BETWEEN main sections instead of only at the edge
+        of the whole block (that's what caused a small line-height bump to
+        shove everything onto page 2 before this change).
+
+        The SIDEBAR is kept as ONE combined block in a single rowspan'd cell
+        (naturally stacked, like before) rather than being split row-by-row
+        in lockstep with main — pairing unrelated sidebar/main sections by
+        index forced each row's height to match its taller partner, which
+        produced large dead gaps between short sidebar sections (Strengths,
+        Interests, ...) sitting next to tall main sections (Education,
+        Experience, ...). A rowspan avoids that: the sidebar just flows
+        top-to-bottom on its own, tight, exactly like a single column would.
+        """
+        row_count = max(len(main_parts_list), 1)
+        side_combined = ''.join(side_parts_list)
+        rows_html = []
+        for i in range(row_count):
+            main_chunk = main_parts_list[i] if i < len(main_parts_list) else ''
+            main_pad_top = "12px" if i == 0 else "0px"
+            main_cell = (
+                f'<td class="main-col" valign="top" '
+                f'style="width:{main_pt}pt; padding-top:{main_pad_top};">{main_chunk}</td>'
+            )
+            gap_cell = f'<td class="gap-col" valign="top" style="width:{round(gap_pt)}pt;"></td>'
+            if i == 0:
+                side_cell = (
+                    f'<td class="side-col-cell" valign="top" rowspan="{row_count}" '
+                    f'style="width:{side_pt}pt; padding-top:15px;">{side_combined}</td>'
+                )
+                row_cells = (side_cell + gap_cell + main_cell) if sidebar_on_left else (main_cell + gap_cell + side_cell)
+            else:
+                # Sidebar cell is spanned down from row 0 — don't re-emit it.
+                row_cells = (gap_cell + main_cell) if sidebar_on_left else (main_cell + gap_cell)
+            rows_html.append(f'<tr>{row_cells}</tr>')
+        return ''.join(rows_html)
+
     if layout_mode == "Professional Two-Column":
         # Professional layout: Summary on top, then sidebar + main below
         professional_summary_top = header_summary_section  # Move summary to top
@@ -1886,18 +2058,16 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
         main_pt = round(cols_pt * (main_width_pct / 100))
         side_pt = round(cols_pt * (sidebar_width_pct / 100))
 
-        main_cell = f'<td class="main-col" valign="top" style="width:{main_pt}pt;">{main_html}</td>'
-        gap_cell = f'<td class="gap-col" valign="top" style="width:{round(gap_pt)}pt;"></td>'
-        side_cell = f'<td class="side-col-cell" valign="top" style="width:{side_pt}pt;">{side_col_html}</td>'
+        # Respect the chosen Sidebar Left/Right structure (previously this
+        # was hardcoded to always put the sidebar on the left, silently
+        # ignoring "Sidebar Right").
+        content_rows = _build_multirow_columns(main_row_parts, sidebar_row_parts, main_pt, side_pt, gap_pt, sidebar_on_left=(sidebar_position == "Left"))
 
-        # Place sidebar on left
-        content_row = side_cell + gap_cell + main_cell
-
-        # Summary at top (full width), then sidebar + main below
+        # Summary at top (full width), then sidebar + main below, row-by-row.
         layout_html = f'''
         <table class="layout-table" style="width:100%;">
             <tr><td colspan="3" style="padding-bottom:10pt;">{professional_summary_top}</td></tr>
-            <tr>{content_row}</tr>
+            {content_rows}
         </table>
         '''
 
@@ -1909,11 +2079,8 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
         main_pt = round(cols_pt * (main_width_pct / 100))
         side_pt = round(cols_pt * (sidebar_width_pct / 100))
 
-        main_cell = f'<td class="main-col" valign="top" style="width:{main_pt}pt;">{main_html}</td>'
-        gap_cell = f'<td class="gap-col" valign="top" style="width:{round(gap_pt)}pt;"></td>'
-        side_cell = f'<td class="side-col-cell" valign="top" style="width:{side_pt}pt;">{side_col_html}</td>'
-        cells = (side_cell + gap_cell + main_cell) if sidebar_first else (main_cell + gap_cell + side_cell)
-        layout_html = f'<table class="layout-table"><tr>{cells}</tr></table>'
+        content_rows = _build_multirow_columns(main_row_parts, sidebar_row_parts, main_pt, side_pt, gap_pt, sidebar_on_left=sidebar_first)
+        layout_html = f'<table class="layout-table" style="width:100%;">{content_rows}</table>'
     else:
         layout_html = f'<div class="main-col">{main_html}</div>'
 
@@ -1927,11 +2094,7 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
     section_margin_pt = base_line_height_pt              # gap between sections (1.0x)
     entry_gap_pt = round(base_line_height_pt * 0.6, 2)   # gap between entries within a section (0.6x)
 
-    html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-    <meta charset="UTF-8">
+    css_block = f"""
     <style>
         * {{ margin: 0; padding: 0; }}
         @page {{ size: A4 portrait; margin: {margin_size}mm; }}
@@ -1996,6 +2159,29 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
         /* Social links: stacked block links replace the old flex column */
         .social-links a {{ display: block; margin-bottom: 6px; font-size: {body_size}pt; color: {primary_color}; text-decoration: none; }}
     </style>
+    """
+
+    if return_parts:
+        # Used by the Professional Two-Column PDF export path, which builds
+        # the page manually with two independently-paginating ReportLab
+        # Frames instead of one HTML table — see generate_professional_pdf().
+        return {
+            "css_block": css_block,
+            "summary_html": professional_summary_top,
+            "sidebar_html_fragment": (photo_and_info_block + sidebar_html) if layout_mode == "Professional Two-Column" else side_col_html,
+            "main_html_fragment": main_html,
+            "sidebar_bg": template_config["sidebar_bg"],
+            "margin_size": margin_size,
+            "sidebar_width_pct": sidebar_width_pct,
+            "main_width_pct": main_width_pct,
+        }
+
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <meta charset="UTF-8">
+    {css_block}
     </head>
     <body>
         {header_html}
@@ -2005,6 +2191,122 @@ def generate_cv_html(cv_data, template_config, photo_settings, sidebar_width_pct
     </html>
     """
     return html
+
+
+def generate_professional_pdf(cv_data, template_config, photo_settings, sidebar_width_pct=32, sidebar_position="Left", primary_color=None, accent_color=None, font_family=None, heading_size=13, body_size=10, line_height=1.4, margin_size=12):
+    """PDF builder for the "Sidebar Left/Right" (Professional Two-Column)
+    structure, used instead of generate_cv_html()'s single HTML-table
+    approach.
+
+    WHY THIS EXISTS: with one HTML <table> for the whole sidebar+main area,
+    xhtml2pdf can only break the page at points the table structure allows.
+    Splitting that table into one row per section fixed page breaks moving
+    the ENTIRE block — but rows are matched by index (sidebar section N next
+    to main section N), so a short sidebar section paired with a long main
+    section stretched the sidebar with big dead gaps. Merging the sidebar
+    back into one cell fixed the gaps, but reintroduced "everything jumps to
+    page 2" for the sidebar.
+
+    A plain HTML table can't win both at once — a table row's height is
+    always max(every cell in it), full stop. So this renders the sidebar and
+    main column as two genuinely INDEPENDENT flows using ReportLab directly:
+    each is parsed to its own list of flowables (via xhtml2pdf's own
+    HTML→flowables step, so all existing section HTML/CSS is reused as-is),
+    then both lists are drained into two side-by-side Frames page by page —
+    same technique newspapers use for real multi-column layout. Whichever
+    column runs long just continues into its own frame on the next page;
+    the other one is completely unaffected.
+    """
+    import xhtml2pdf.document as _pisa_doc
+    from reportlab.platypus import Frame as _Frame
+    from reportlab.pdfgen import canvas as _canvas_mod
+    from reportlab.lib.pagesizes import A4 as _A4
+    from reportlab.lib.colors import HexColor as _HexColor
+
+    parts = generate_cv_html(
+        cv_data, template_config, photo_settings,
+        sidebar_width_pct=sidebar_width_pct, sidebar_position=sidebar_position,
+        layout_mode="Professional Two-Column", primary_color=primary_color,
+        accent_color=accent_color, font_family=font_family, heading_size=heading_size,
+        body_size=body_size, line_height=line_height, margin_size=margin_size,
+        return_parts=True,
+    )
+
+    def _fragment_to_flowables(html_fragment):
+        if not html_fragment.strip():
+            return []
+        full_html = f"<html><head>{parts['css_block']}</head><body>{html_fragment}</body></html>"
+        ctx = _pisa_doc.pisaStory(full_html, encoding="UTF-8")
+        return list(ctx.story)
+
+    summary_flowables = _fragment_to_flowables(parts["summary_html"])
+    sidebar_flowables = _fragment_to_flowables(parts["sidebar_html_fragment"])
+    main_flowables = _fragment_to_flowables(parts["main_html_fragment"])
+
+    page_w, page_h = _A4
+    mm_to_pt = 2.83465
+    margin_pt = parts["margin_size"] * mm_to_pt
+    gap_pt = 20 * 0.75  # matches the 20px gap used elsewhere
+    content_w = page_w - 2 * margin_pt
+    cols_w = max(content_w - gap_pt, 0)
+    side_w = cols_w * (parts["sidebar_width_pct"] / 100)
+    main_w = cols_w * (parts["main_width_pct"] / 100)
+    sidebar_on_left = (sidebar_position != "Right")
+    side_x = margin_pt if sidebar_on_left else margin_pt + main_w + gap_pt
+    main_x = margin_pt + side_w + gap_pt if sidebar_on_left else margin_pt
+
+    buf = BytesIO()
+    c = _canvas_mod.Canvas(buf, pagesize=_A4)
+    sidebar_bg = _HexColor(parts["sidebar_bg"])
+
+    # Summary sits full-width at the very top of page 1 only. Its own height
+    # is measured (via wrap()) so the frame given to it is exactly as tall
+    # as it needs — no guessing, no leftover blank space.
+    summary_h = 0
+    if summary_flowables:
+        for fl in summary_flowables:
+            try:
+                _, h = fl.wrap(content_w, page_h)
+                summary_h += h
+            except Exception:
+                pass
+        summary_h += 6  # small safety buffer for rounding
+
+    top_y = page_h - margin_pt
+    if summary_flowables:
+        summary_frame = _Frame(margin_pt, top_y - summary_h, content_w, summary_h,
+                                leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
+        summary_frame.addFromList(summary_flowables, c)
+        columns_top = top_y - summary_h - 10  # small gap below summary
+    else:
+        columns_top = top_y
+
+    page_num = 0
+    while sidebar_flowables or main_flowables or page_num == 0:
+        page_num += 1
+        this_top = columns_top if page_num == 1 else top_y
+        frame_h = this_top - margin_pt
+
+        # Sidebar background panel spans the full column height on every
+        # page it appears on, like a continuous colored sidebar block.
+        if sidebar_flowables or page_num == 1:
+            c.setFillColor(sidebar_bg)
+            c.rect(side_x, margin_pt, side_w, frame_h, fill=1, stroke=0)
+
+        side_frame = _Frame(side_x, margin_pt, side_w, frame_h,
+                             leftPadding=10, rightPadding=10, topPadding=10, bottomPadding=10)
+        main_frame = _Frame(main_x, margin_pt, main_w, frame_h,
+                             leftPadding=0, rightPadding=0, topPadding=10, bottomPadding=10)
+
+        side_frame.addFromList(sidebar_flowables, c)
+        main_frame.addFromList(main_flowables, c)
+
+        c.showPage()
+        if page_num > 30:  # sanity guard against a runaway loop
+            break
+
+    c.save()
+    return buf.getvalue()
 
 def render_pdf_preview(pdf_bytes: bytes):
     try:
@@ -2745,19 +3047,36 @@ with col_edit_area:
             export_cv_data = dict(cv_data)
             export_cv_data["sections_data"] = {**saved_sec, **export_sec}
 
-            rendered_html = generate_cv_html(
-                export_cv_data, CV_TEMPLATES[selected_template_key], photo_settings,
-                sidebar_width_pct=sidebar_width_pct if (layout_mode == "Two Columns" or layout_mode == "Professional Two-Column") else 32,
-                sidebar_position=sidebar_position if (layout_mode == "Two Columns" or layout_mode == "Professional Two-Column") else "Right",
-                layout_mode=layout_mode, primary_color=primary_color, accent_color=accent_color,
-                font_family=font_family, heading_size=heading_size, body_size=body_size,
-                line_height=line_height, margin_size=margin_size
-            )
-            pdf_buffer = BytesIO()
-            pisa_status = pisa.CreatePDF(src=rendered_html, dest=pdf_buffer, encoding="UTF-8")
-            pdf_bytes = b"" if pisa_status.err else pdf_buffer.getvalue()
-            if pisa_status.err:
-                st.error("⚠️ PDF generation failed — check the console/logs for xhtml2pdf errors.")
+            if layout_mode == "Professional Two-Column":
+                # Sidebar Left/Right structure: built with two independently
+                # paginating ReportLab frames instead of one HTML table, so
+                # the sidebar stays tight AND either column can break to a
+                # new page on its own — see generate_professional_pdf().
+                try:
+                    pdf_bytes = generate_professional_pdf(
+                        export_cv_data, CV_TEMPLATES[selected_template_key], photo_settings,
+                        sidebar_width_pct=sidebar_width_pct, sidebar_position=sidebar_position,
+                        primary_color=primary_color, accent_color=accent_color,
+                        font_family=font_family, heading_size=heading_size, body_size=body_size,
+                        line_height=line_height, margin_size=margin_size
+                    )
+                except Exception:
+                    st.error("⚠️ PDF generation failed for the Professional layout — check the console/logs.")
+                    pdf_bytes = b""
+            else:
+                rendered_html = generate_cv_html(
+                    export_cv_data, CV_TEMPLATES[selected_template_key], photo_settings,
+                    sidebar_width_pct=sidebar_width_pct if (layout_mode == "Two Columns" or layout_mode == "Professional Two-Column") else 32,
+                    sidebar_position=sidebar_position if (layout_mode == "Two Columns" or layout_mode == "Professional Two-Column") else "Right",
+                    layout_mode=layout_mode, primary_color=primary_color, accent_color=accent_color,
+                    font_family=font_family, heading_size=heading_size, body_size=body_size,
+                    line_height=line_height, margin_size=margin_size
+                )
+                pdf_buffer = BytesIO()
+                pisa_status = pisa.CreatePDF(src=rendered_html, dest=pdf_buffer, encoding="UTF-8")
+                pdf_bytes = b"" if pisa_status.err else pdf_buffer.getvalue()
+                if pisa_status.err:
+                    st.error("⚠️ PDF generation failed — check the console/logs for xhtml2pdf errors.")
 
         download_choice = st.radio("Select data type to download:", ["Preview Data", "Saved Data"], horizontal=True)
         target_json_data = export_cv_data if download_choice == "Preview Data" else st.session_state.get("saved_version_data", export_cv_data)
