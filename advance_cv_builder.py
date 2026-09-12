@@ -464,7 +464,18 @@ class TextFormatter:
                 else:
                     processed_lines.append('<br>')
 
-        return "".join(processed_lines)
+        result = "".join(processed_lines)
+        # The loop above always appends a trailing <br> after the LAST line
+        # too, even though nothing follows it. When this result is wrapped
+        # in <p>...</p> (as Education's "highlights" field is) that dangling
+        # <br> forces an extra blank line INSIDE the paragraph — adding
+        # roughly one full line-height of unwanted space specifically when
+        # this block is the last thing in a section, right before the next
+        # section header. Stripping it changes nothing about the visible
+        # line breaks between actual content lines (those still need their
+        # own <br>), only removes the one that serves no purpose.
+        result = re.sub(r'(<br>)+$', '', result)
+        return result
 
 def fix_entry_spacing(section_html: str) -> str:
     """
@@ -601,7 +612,7 @@ def section_visibility_toggle(sec_name: str):
     return new_val
 
 
-def auto_save_cv(cv_data: Dict, custom_sections: List, custom_section_types: Dict, section_visibility: Dict, section_placement: Dict, section_order: List, photo_data: Dict = None):
+def auto_save_cv(cv_data: Dict, custom_sections: List, custom_section_types: Dict, section_visibility: Dict, section_placement: Dict, section_order: List, photo_data: Dict = None, config: Dict = None):
     """Periodically checkpoint user edits to local storage."""
     try:
         autosave_payload = {
@@ -611,8 +622,9 @@ def auto_save_cv(cv_data: Dict, custom_sections: List, custom_section_types: Dic
             "section_visibility": section_visibility,
             "section_placement": section_placement,
             "section_order": section_order,
-            "photo_data": photo_data or {}
+            "photo_data": photo_data or {},
         }
+        autosave_payload.update(config or {})
         with open(AUTOSAVE_FILE, "w") as f:
             json.dump(autosave_payload, f, indent=2)
     except Exception:
@@ -731,6 +743,105 @@ def load_all_versions(profile_name: str) -> List[Dict]:
                 with open(os.path.join(VERSION_HISTORY_DIR, file), 'r') as f:
                     versions.append(json.load(f))
     return sorted(versions, key=lambda x: x['timestamp'], reverse=True)
+
+# Maps a stable field name (used in saved JSON) to the actual session_state
+# key the corresponding widget reads/writes via key=. Every save/export path
+# (autosave, Save Profile, Save Version, Download JSON) writes these fields;
+# every load path (Load Profile, Import JSON, Restore Version, autosave
+# restore on startup) sets them back into these exact session_state keys —
+# which is what actually makes a widget "remember" the loaded value, since a
+# Streamlit widget with a key= reads its current value from session_state
+# BEFORE using its `value=`/default argument.
+#
+# WHY THIS EXISTS: colors, fonts, sizes, template choice, and layout
+# structure were previously plain widget defaults with no key= at all — so
+# every save/load path only ever round-tripped section CONTENT (text,
+# ordering, visibility), never the visual/layout CONFIGURATION. Loading a
+# saved profile silently reset every style choice back to hardcoded
+# defaults, which is the bug being fixed here.
+_CONFIG_FIELD_TO_SESSION_KEY = {
+    "selected_template": "selected_template",
+    "design_layout": "design_layout",
+    "layout_template_applied": "layout_template_applied",
+    "primary_color": "cfg_primary_color",
+    "accent_color": "cfg_accent_color",
+    "font_family": "cfg_font_family",
+    "heading_size": "cfg_heading_size",
+    "body_size": "cfg_body_size",
+    "line_height": "cfg_line_height",
+    "margin_size": "cfg_margin_size",
+    "layout_structure": "cfg_layout_structure",
+    "sidebar_width_pct": "cfg_sidebar_width_pct",
+}
+
+def collect_full_config() -> Dict:
+    """Snapshot everything that defines how the CV LOOKS — template, colors,
+    fonts, sizes, and layout structure — not just its text content. Call
+    this at save/export time and merge the result into whatever dict is
+    being written to disk/download, so a saved file can fully restore later.
+    """
+    cfg = {field: st.session_state.get(key) for field, key in _CONFIG_FIELD_TO_SESSION_KEY.items()}
+    cfg["header_visibility"] = dict(st.session_state.get("header_visibility", {}))
+    return cfg
+
+def apply_full_config(data: Dict):
+    """Restore everything collect_full_config() saved, back into the exact
+    session_state keys the widgets are bound to. Call this BEFORE st.rerun()
+    on every load path (Load Profile, Import JSON, Restore Version, and the
+    initial autosave restore at startup).
+
+    Validates/clamps values before assigning them: a Streamlit widget whose
+    key= already holds a value outside its allowed options (for a selectbox/
+    radio) or numeric range (for a slider) raises an exception the moment
+    that widget is created — which would matter here since restored data
+    could be from an older save format, hand-edited, or otherwise off-spec.
+    """
+    if not isinstance(data, dict):
+        return
+
+    def _clamp(value, lo, hi):
+        try:
+            return max(lo, min(hi, value))
+        except TypeError:
+            return None
+
+    validators = {
+        "selected_template": lambda v: v if v in CV_TEMPLATES else None,
+        "layout_structure": lambda v: v if v in ("Full Width", "Sidebar Left", "Sidebar Right") else None,
+        "font_family": lambda v: v if v in ("Helvetica", "Arial", "Georgia", "Times New Roman") else None,
+        "heading_size": lambda v: _clamp(v, 10, 16),
+        "body_size": lambda v: _clamp(v, 9, 12),
+        "line_height": lambda v: _clamp(v, 1.2, 1.8),
+        "margin_size": lambda v: _clamp(v, 8, 20),
+        "sidebar_width_pct": lambda v: _clamp(v, 20, 50),
+    }
+
+    for field, key in _CONFIG_FIELD_TO_SESSION_KEY.items():
+        raw_value = data.get(field)
+        if raw_value is None:
+            continue
+        value = validators[field](raw_value) if field in validators else raw_value
+        if value is not None:
+            st.session_state[key] = value
+    if isinstance(data.get("header_visibility"), dict) and data["header_visibility"]:
+        st.session_state.header_visibility = dict(data["header_visibility"])
+
+def _on_template_change():
+    """Fired when the "Select Template" dropdown changes. Only needed
+    because the color/font widgets are key-bound for save/load persistence
+    (see apply_full_config) — once a key already holds a value, the widget
+    ignores any freshly-computed default on every later rerun. So switching
+    templates has to overwrite those keys directly, or the dropdown would
+    silently stop doing anything the moment the keys already existed.
+    """
+    tpl = CV_TEMPLATES[st.session_state.selected_template]
+    st.session_state.cfg_primary_color = tpl["primary_color"]
+    st.session_state.cfg_accent_color = tpl["accent"]
+    st.session_state.cfg_font_family = tpl["font"]
+    # A plain template switch (as opposed to "Apply Template" in Design
+    # Theme) shouldn't keep stale Design Theme sizing/description info
+    # displayed as if it were still active.
+    st.session_state.layout_template_applied = False
 
 def get_cv_score(cv_data: Dict) -> tuple[int, List[str]]:
     score = 0
@@ -936,6 +1047,15 @@ st.markdown(
 # Auto-recovery logic on startup
 autosaved_data = load_autosaved_cv()
 
+# One-time restore of styling/layout config (colors, fonts, sizes, template,
+# layout structure) from the last autosave. Must run BEFORE any widget with
+# a matching key= is created, and must run only ONCE per session — calling
+# apply_full_config() again on a later rerun would stomp on live in-session
+# widget edits with the old autosaved values every time the script reruns.
+if not st.session_state.get("_startup_config_loaded", False):
+    apply_full_config(autosaved_data)
+    st.session_state["_startup_config_loaded"] = True
+
 if "custom_sections" not in st.session_state:
     st.session_state.custom_sections = autosaved_data.get("custom_sections", [])
 if "custom_section_types" not in st.session_state:
@@ -1029,6 +1149,7 @@ with st.sidebar.expander(t("sidebar_profile"), expanded=True):
                     st.session_state.section_placement = loaded_data.get("section_placement", st.session_state.section_placement)
                     st.session_state.section_order = loaded_data.get("section_order", st.session_state.section_order)
                     st.session_state.photo_data = loaded_data.get("photo_data", st.session_state.photo_data)
+                    apply_full_config(loaded_data)
                 st.success(f"✅ Loaded '{selected_profile}'")
                 st.rerun()
 
@@ -1042,6 +1163,7 @@ with st.sidebar.expander(t("sidebar_profile"), expanded=True):
                 st.session_state.cv_data["section_placement"] = st.session_state.section_placement
                 st.session_state.cv_data["section_order"] = st.session_state.section_order
                 st.session_state.cv_data["photo_data"] = st.session_state.photo_data
+                st.session_state.cv_data.update(collect_full_config())
                 file_path = os.path.join(SAVED_PROFILES_DIR, f"{new_profile_name}.json")
                 with open(file_path, "w") as f:
                     json.dump(st.session_state.cv_data, f, indent=2)
@@ -1064,6 +1186,7 @@ with st.sidebar.expander(t("sidebar_profile"), expanded=True):
                 st.session_state.section_placement = imported_data.get("section_placement", st.session_state.section_placement)
                 st.session_state.section_order = imported_data.get("section_order", st.session_state.section_order)
                 st.session_state.photo_data = imported_data.get("photo_data", st.session_state.photo_data)
+                apply_full_config(imported_data)
                 st.success(t("import_success"))
                 st.rerun()
             except Exception:
@@ -1084,6 +1207,7 @@ with st.sidebar.expander(t("sidebar_profile"), expanded=True):
                 st.session_state.section_placement = restored.get("section_placement", st.session_state.section_placement)
                 st.session_state.section_order = restored.get("section_order", st.session_state.section_order)
                 st.session_state.photo_data = restored.get("photo_data", st.session_state.photo_data)
+                apply_full_config(restored)
                 st.success("✅ Restored version!")
                 st.rerun()
 
@@ -1185,9 +1309,22 @@ with st.sidebar.expander(t("design_theme_header"), expanded=True):
 
     # Apply template button
     if st.button(t("design_theme_apply_btn"), use_container_width=True):
-        # Store template in session state
+        # Store template choice itself...
         st.session_state.design_layout = selected_layout
         st.session_state.layout_template_applied = True
+        # ...AND write straight into the color/font/size widgets' own keys.
+        # Those widgets are key-bound (needed so Save/Load can persist them),
+        # which means once a key already holds a value, the widget ignores
+        # any freshly-computed "default" argument on every later rerun — so
+        # this button has to overwrite the keys directly, or clicking it
+        # would silently do nothing the moment those keys already existed.
+        st.session_state.cfg_primary_color = layout_config["primary_color"]
+        st.session_state.cfg_accent_color = layout_config["accent_color"]
+        st.session_state.cfg_font_family = layout_config["font_family"]
+        st.session_state.cfg_heading_size = layout_config["heading_size"]
+        st.session_state.cfg_body_size = layout_config["body_size"]
+        st.session_state.cfg_line_height = layout_config["line_height"]
+        st.session_state.cfg_margin_size = layout_config["margin_size"]
         st.success(t("design_theme_applied").format(name=t(DESIGN_LAYOUT_NAME_KEYS[selected_layout])))
 
     # Preview colors
@@ -1224,7 +1361,7 @@ with st.sidebar.expander(t("template_styling"), expanded=True):
         default_line_height = 1.4
         default_margin = 12
 
-    st.session_state.selected_template = st.selectbox(t("select_template"), list(CV_TEMPLATES.keys()))
+    st.selectbox(t("select_template"), list(CV_TEMPLATES.keys()), key="selected_template", on_change=_on_template_change)
     selected_tpl = cast(str, st.session_state.selected_template)
     template_config = CV_TEMPLATES[selected_tpl]
 
@@ -1233,21 +1370,21 @@ with st.sidebar.expander(t("template_styling"), expanded=True):
     col_primary, col_accent = st.columns(2)
 
     with col_primary:
-        primary_color = st.color_picker(t("primary_color"), default_primary)
+        primary_color = st.color_picker(t("primary_color"), default_primary, key="cfg_primary_color")
     with col_accent:
-        accent_color = st.color_picker(t("accent_color"), default_accent)
+        accent_color = st.color_picker(t("accent_color"), default_accent, key="cfg_accent_color")
 
     st.subheader(t("typography"))
     col_font, col_size = st.columns(2)
 
     with col_font:
-        font_family = st.selectbox(t("font_family"), ["Helvetica", "Arial", "Georgia", "Times New Roman"], index=["Helvetica", "Arial", "Georgia", "Times New Roman"].index(default_font) if default_font in ["Helvetica", "Arial", "Georgia", "Times New Roman"] else 0)
+        font_family = st.selectbox(t("font_family"), ["Helvetica", "Arial", "Georgia", "Times New Roman"], index=["Helvetica", "Arial", "Georgia", "Times New Roman"].index(default_font) if default_font in ["Helvetica", "Arial", "Georgia", "Times New Roman"] else 0, key="cfg_font_family")
     with col_size:
-        heading_size = st.slider(t("heading_size"), 10, 16, default_heading)
+        heading_size = st.slider(t("heading_size"), 10, 16, default_heading, key="cfg_heading_size")
 
-    body_size = st.slider(t("body_size"), 9, 12, default_body)
-    line_height = st.slider(t("line_height"), 1.2, 1.8, default_line_height, 0.1)
-    margin_size = st.slider(t("margin_size"), 8, 20, default_margin)
+    body_size = st.slider(t("body_size"), 9, 12, default_body, key="cfg_body_size")
+    line_height = st.slider(t("line_height"), 1.2, 1.8, default_line_height, 0.1, key="cfg_line_height")
+    margin_size = st.slider(t("margin_size"), 8, 20, default_margin, key="cfg_margin_size")
 
 with st.sidebar.expander(t("layout_structure_header"), expanded=True):
     st.markdown(t("layout_structure_subtitle"))
@@ -1263,6 +1400,7 @@ with st.sidebar.expander(t("layout_structure_header"), expanded=True):
         layout_structure_options,
         format_func=lambda x: layout_structure_labels[x],
         help=t("layout_structure_help"),
+        key="cfg_layout_structure",
     )
 
     if layout_structure == "Full Width":
@@ -1273,7 +1411,7 @@ with st.sidebar.expander(t("layout_structure_header"), expanded=True):
     else:
         layout_mode = "Professional Two-Column"
         sidebar_position = "Left" if layout_structure == "Sidebar Left" else "Right"
-        sidebar_width_pct = st.slider(t("sidebar_width"), 20, 50, 32)
+        sidebar_width_pct = st.slider(t("sidebar_width"), 20, 50, 32, key="cfg_sidebar_width_pct")
         main_width_pct = 100 - sidebar_width_pct
         side_label = t("left") if sidebar_position == "Left" else t("right")
         st.caption(t("layout_structure_caption1").format(side=side_label.lower()))
@@ -2975,7 +3113,7 @@ with col_edit_area:
         st.session_state.cv_data = cv_data
 
         # Periodically checkpoint user edits via auto-save
-        auto_save_cv(cv_data, st.session_state.custom_sections, st.session_state.custom_section_types, st.session_state.section_visibility, st.session_state.section_placement, st.session_state.section_order, st.session_state.photo_data)
+        auto_save_cv(cv_data, st.session_state.custom_sections, st.session_state.custom_section_types, st.session_state.section_visibility, st.session_state.section_placement, st.session_state.section_order, st.session_state.photo_data, config=collect_full_config())
 
         safe_filename = full_name.replace(' ', '_') if full_name else "My"
 
@@ -3046,6 +3184,13 @@ with col_edit_area:
         with st.spinner("Generating preview..."):
             export_cv_data = dict(cv_data)
             export_cv_data["sections_data"] = {**saved_sec, **export_sec}
+            export_cv_data["custom_sections"] = st.session_state.custom_sections
+            export_cv_data["custom_section_types"] = st.session_state.custom_section_types
+            export_cv_data["section_visibility"] = st.session_state.section_visibility
+            export_cv_data["section_placement"] = st.session_state.section_placement
+            export_cv_data["section_order"] = st.session_state.section_order
+            export_cv_data["photo_data"] = st.session_state.photo_data
+            export_cv_data.update(collect_full_config())
 
             if layout_mode == "Professional Two-Column":
                 # Sidebar Left/Right structure: built with two independently
