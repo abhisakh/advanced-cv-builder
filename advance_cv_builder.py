@@ -115,6 +115,16 @@ TRANSLATIONS = {
         "design_desc_academic_formal": "Formal academic style with navy sidebar and traditional fonts",
         "design_desc_minimalist": "Clean minimalist design - maximum white space",
         "design_desc_tech_modern": "Modern tech-focused design with vibrant colors",
+        "gallery_header": "📂 My Saved CVs",
+        "gallery_subtitle": "Browse your saved profiles and open one to edit or export as PDF.",
+        "gallery_empty": "No saved profiles yet. Use **💾 Save Profile** below once you've built a CV to see it here.",
+        "gallery_load_btn": "📂 Open",
+        "gallery_delete_btn": "🗑️ Delete",
+        "gallery_delete_confirm": "Click again to confirm delete",
+        "gallery_deleted": "Deleted '{name}'",
+        "gallery_loaded": "✅ Opened '{name}'",
+        "gallery_last_saved": "Last saved: {date}",
+        "gallery_untitled": "(No name yet)",
         "photo_pos_header_right": "Header Right",
         "photo_pos_header_left": "Header Left",
         "photo_pos_header_center": "Header Center",
@@ -292,6 +302,16 @@ TRANSLATIONS = {
         "design_desc_academic_formal": "Formeller akademischer Stil mit marineblauer Seitenleiste und klassischen Schriftarten",
         "design_desc_minimalist": "Klares minimalistisches Design - maximaler Weißraum",
         "design_desc_tech_modern": "Modernes techniknahes Design mit lebendigen Farben",
+        "gallery_header": "📂 Meine gespeicherten Lebensläufe",
+        "gallery_subtitle": "Durchsuche deine gespeicherten Profile und öffne eines zum Bearbeiten oder Exportieren als PDF.",
+        "gallery_empty": "Noch keine gespeicherten Profile. Nutze **💾 Profil speichern** weiter unten, sobald du einen Lebenslauf erstellt hast.",
+        "gallery_load_btn": "📂 Öffnen",
+        "gallery_delete_btn": "🗑️ Löschen",
+        "gallery_delete_confirm": "Erneut klicken zum Bestätigen",
+        "gallery_deleted": "'{name}' gelöscht",
+        "gallery_loaded": "✅ '{name}' geöffnet",
+        "gallery_last_saved": "Zuletzt gespeichert: {date}",
+        "gallery_untitled": "(Noch kein Name)",
         "photo_pos_header_right": "Kopfzeile rechts",
         "photo_pos_header_left": "Kopfzeile links",
         "photo_pos_header_center": "Kopfzeile mittig",
@@ -843,6 +863,57 @@ def _on_template_change():
     # displayed as if it were still active.
     st.session_state.layout_template_applied = False
 
+def load_profile_by_name(profile_name: str) -> bool:
+    """Load a saved profile JSON by name into session_state (content +
+    full styling/config). Returns True on success. Caller is responsible
+    for calling st.rerun() afterward — this only mutates state.
+    """
+    file_path = os.path.join(SAVED_PROFILES_DIR, f"{profile_name}.json")
+    if not os.path.exists(file_path):
+        return False
+    try:
+        with open(file_path, "r") as f:
+            loaded_data = json.load(f)
+    except Exception:
+        return False
+    st.session_state.cv_data = loaded_data
+    st.session_state.custom_sections = loaded_data.get("custom_sections", [])
+    st.session_state.custom_section_types = loaded_data.get("custom_section_types", {})
+    st.session_state.section_visibility = loaded_data.get("section_visibility", st.session_state.section_visibility)
+    st.session_state.section_placement = loaded_data.get("section_placement", st.session_state.section_placement)
+    st.session_state.section_order = loaded_data.get("section_order", st.session_state.section_order)
+    st.session_state.photo_data = loaded_data.get("photo_data", st.session_state.photo_data)
+    apply_full_config(loaded_data)
+    return True
+
+def get_profile_preview(profile_name: str) -> Dict:
+    """Lightweight metadata for a saved profile, used by the Gallery View
+    card grid — full name, template, colors, last-saved date — without
+    needing to fully apply/restore it into session_state.
+    """
+    file_path = os.path.join(SAVED_PROFILES_DIR, f"{profile_name}.json")
+    preview = {
+        "full_name": "",
+        "selected_template": "Modern",
+        "primary_color": "#2b3a4a",
+        "accent_color": "#0066cc",
+        "modified": None,
+    }
+    try:
+        with open(file_path, "r") as f:
+            data = json.load(f)
+        preview["full_name"] = data.get("full_name", "")
+        if data.get("selected_template"):
+            preview["selected_template"] = data["selected_template"]
+        if data.get("primary_color"):
+            preview["primary_color"] = data["primary_color"]
+        if data.get("accent_color"):
+            preview["accent_color"] = data["accent_color"]
+        preview["modified"] = datetime.fromtimestamp(os.path.getmtime(file_path))
+    except Exception:
+        pass
+    return preview
+
 def get_cv_score(cv_data: Dict) -> tuple[int, List[str]]:
     score = 0
     suggestions = []
@@ -1139,19 +1210,9 @@ with st.sidebar.expander(t("sidebar_profile"), expanded=True):
         selected_profile = st.selectbox(t("load_profile"), ["Default"] + saved_files, key="profile_select")
         if st.button(t("btn_load"), use_container_width=True):
             if selected_profile != "Default":
-                file_path = os.path.join(SAVED_PROFILES_DIR, f"{selected_profile}.json")
-                with open(file_path, "r") as f:
-                    loaded_data = json.load(f)
-                    st.session_state.cv_data = loaded_data
-                    st.session_state.custom_sections = loaded_data.get("custom_sections", [])
-                    st.session_state.custom_section_types = loaded_data.get("custom_section_types", {})
-                    st.session_state.section_visibility = loaded_data.get("section_visibility", st.session_state.section_visibility)
-                    st.session_state.section_placement = loaded_data.get("section_placement", st.session_state.section_placement)
-                    st.session_state.section_order = loaded_data.get("section_order", st.session_state.section_order)
-                    st.session_state.photo_data = loaded_data.get("photo_data", st.session_state.photo_data)
-                    apply_full_config(loaded_data)
-                st.success(f"✅ Loaded '{selected_profile}'")
-                st.rerun()
+                if load_profile_by_name(selected_profile):
+                    st.success(f"✅ Loaded '{selected_profile}'")
+                    st.rerun()
 
     with col_new:
         new_profile_name = st.text_input(t("new_profile"), placeholder="My CV")
@@ -2457,6 +2518,82 @@ def render_pdf_preview(pdf_bytes: bytes):
             st.image(img_bytes, caption=f"Page {page_num + 1}", use_container_width=True)
     except Exception as e:
         st.warning(f"Could not render visual preview: {e}")
+
+# ============================================================================
+# GALLERY VIEW — browse and open saved profiles as visual cards
+# ============================================================================
+# Each saved profile is just one JSON file (name -> full content + full
+# styling/layout config, via collect_full_config()/apply_full_config()).
+# That's already a perfectly serviceable lightweight "database" for a
+# single-user tool like this — no separate DB engine needed. This gallery
+# is the browsing layer on top of it: a visual grid instead of a bare
+# dropdown, so picking the right saved CV doesn't require remembering exact
+# file names.
+with st.expander(t("gallery_header"), expanded=False):
+    st.caption(t("gallery_subtitle"))
+    gallery_files = [f.replace(".json", "") for f in os.listdir(SAVED_PROFILES_DIR) if f.endswith(".json")]
+
+    if not gallery_files:
+        st.info(t("gallery_empty"))
+    else:
+        # Sort newest-first by file modified time, so recently saved/edited
+        # profiles surface at the top instead of alphabetical order.
+        gallery_files.sort(
+            key=lambda n: os.path.getmtime(os.path.join(SAVED_PROFILES_DIR, f"{n}.json")),
+            reverse=True,
+        )
+
+        cards_per_row = 3
+        for row_start in range(0, len(gallery_files), cards_per_row):
+            row_names = gallery_files[row_start:row_start + cards_per_row]
+            cols = st.columns(cards_per_row)
+            for col, profile_name in zip(cols, row_names):
+                with col:
+                    with st.container(border=True):
+                        preview = get_profile_preview(profile_name)
+
+                        # Color swatch strip (primary/accent) gives an
+                        # at-a-glance visual identity to each card, since
+                        # generating a real thumbnail would mean rendering
+                        # a full PDF preview per card — too heavy for a
+                        # gallery grid with potentially many profiles.
+                        st.markdown(
+                            f'<div style="display:flex; height:8px; border-radius:4px; overflow:hidden; margin-bottom:8px;">'
+                            f'<div style="flex:1; background-color:{preview["primary_color"]};"></div>'
+                            f'<div style="flex:1; background-color:{preview["accent_color"]};"></div>'
+                            f'</div>',
+                            unsafe_allow_html=True,
+                        )
+
+                        st.markdown(f"**{profile_name}**")
+                        display_name = preview["full_name"] or t("gallery_untitled")
+                        st.caption(display_name)
+                        st.caption(f"🎨 {preview['selected_template']}")
+                        if preview["modified"]:
+                            st.caption(t("gallery_last_saved").format(date=preview["modified"].strftime("%d %b %Y, %H:%M")))
+
+                        card_col1, card_col2 = st.columns(2)
+                        with card_col1:
+                            if st.button(t("gallery_load_btn"), key=f"gallery_open_{profile_name}", use_container_width=True):
+                                if load_profile_by_name(profile_name):
+                                    st.success(t("gallery_loaded").format(name=profile_name))
+                                    st.rerun()
+                        with card_col2:
+                            confirm_key = f"gallery_confirm_delete_{profile_name}"
+                            if st.session_state.get(confirm_key, False):
+                                if st.button(t("gallery_delete_btn"), key=f"gallery_delete_confirm_{profile_name}", use_container_width=True, type="primary"):
+                                    os.remove(os.path.join(SAVED_PROFILES_DIR, f"{profile_name}.json"))
+                                    st.session_state[confirm_key] = False
+                                    st.success(t("gallery_deleted").format(name=profile_name))
+                                    st.rerun()
+                            else:
+                                if st.button(t("gallery_delete_btn"), key=f"gallery_delete_{profile_name}", use_container_width=True):
+                                    st.session_state[confirm_key] = True
+                                    st.rerun()
+                            if st.session_state.get(confirm_key, False):
+                                st.caption(f"⚠️ {t('gallery_delete_confirm')}")
+
+
 
 # ============================================================================
 # TWO-COLUMN SPLIT WITH INDEPENDENT SCROLL CONTAINERS
