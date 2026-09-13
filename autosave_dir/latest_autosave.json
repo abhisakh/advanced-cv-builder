@@ -160,7 +160,7 @@
       "Softwarekenntnisse": "Microsoft Office \n(Word, PowerPoint,Excel)",
       "Software ": "Microsoft Office \n(Word, PowerPoint, Excel)",
       "Programme": "",
-      "IT-Kenntnisse": "Python\nSQL"
+      "IT-Kenntnisse": "* Python\n* SQL"
     },
     "full_name": "Abhijnan Sarma",
     "title": "",
@@ -248,6 +248,25 @@
       "offset_x": 50,
       "offset_y": 20,
       "border_radius": "0px"
+    },
+    "selected_template": "Modern",
+    "design_layout": "Modern Clean",
+    "layout_template_applied": false,
+    "primary_color": "#2b3a4a",
+    "accent_color": "#0066cc",
+    "font_family": "Helvetica",
+    "heading_size": 13,
+    "body_size": 11,
+    "line_height": 1.4,
+    "margin_size": 9,
+    "layout_structure": "Sidebar Left",
+    "sidebar_width_pct": 32,
+    "header_visibility": {
+      "title": true,
+      "location": true,
+      "phone": true,
+      "email": true,
+      "links": true
     }
   },
   "custom_sections": [
@@ -328,15 +347,15 @@
     "offset_y": 20,
     "border_radius": "0px"
   },
-  "selected_template": "Creative",
+  "selected_template": "Modern",
   "design_layout": "Modern Clean",
   "layout_template_applied": false,
-  "primary_color": "#E63946",
-  "accent_color": "#A23B72",
+  "primary_color": "#2b3a4a",
+  "accent_color": "#0066cc",
   "font_family": "Helvetica",
   "heading_size": 13,
   "body_size": 11,
-  "line_height": 1.5,
+  "line_height": 1.4,
   "margin_size": 9,
   "layout_structure": "Sidebar Left",
   "sidebar_width_pct": 32,
