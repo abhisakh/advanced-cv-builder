@@ -1186,6 +1186,92 @@ if "photo_data" not in st.session_state:
     }))
 
 # ============================================================================
+# GALLERY VIEW — browse and open saved profiles as visual cards
+# ============================================================================
+# Each saved profile is just one JSON file (name -> full content + full
+# styling/layout config, via collect_full_config()/apply_full_config()).
+# That's already a perfectly serviceable lightweight "database" for a
+# single-user tool like this — no separate DB engine needed. This gallery
+# is the browsing layer on top of it: a visual grid instead of a bare
+# dropdown, so picking the right saved CV doesn't require remembering exact
+# file names.
+#
+# IMPORTANT — placement: this MUST execute before any sidebar widget bound
+# to a key in _CONFIG_FIELD_TO_SESSION_KEY (selected_template, cfg_primary_
+# color, etc.) is instantiated. "Open" calls apply_full_config(), which
+# assigns directly into those session_state keys — Streamlit raises
+# StreamlitAPIException if that happens AFTER the matching widget has
+# already been created earlier in the same script run. Since Python
+# executes this script strictly top-to-bottom regardless of sidebar vs
+# main-area placement, physical position in the FILE is what matters here,
+# not visual position on the page — this block renders in the main content
+# area (plain st.expander, not st.sidebar.*) but must stay positioned
+# before the "SIDEBAR - TEMPLATE SELECTION" section below.
+with st.expander(t("gallery_header"), expanded=False):
+    st.caption(t("gallery_subtitle"))
+    gallery_files = [f.replace(".json", "") for f in os.listdir(SAVED_PROFILES_DIR) if f.endswith(".json")]
+
+    if not gallery_files:
+        st.info(t("gallery_empty"))
+    else:
+        # Sort newest-first by file modified time, so recently saved/edited
+        # profiles surface at the top instead of alphabetical order.
+        gallery_files.sort(
+            key=lambda n: os.path.getmtime(os.path.join(SAVED_PROFILES_DIR, f"{n}.json")),
+            reverse=True,
+        )
+
+        cards_per_row = 3
+        for row_start in range(0, len(gallery_files), cards_per_row):
+            row_names = gallery_files[row_start:row_start + cards_per_row]
+            cols = st.columns(cards_per_row)
+            for col, profile_name in zip(cols, row_names):
+                with col:
+                    with st.container(border=True):
+                        preview = get_profile_preview(profile_name)
+
+                        # Color swatch strip (primary/accent) gives an
+                        # at-a-glance visual identity to each card, since
+                        # generating a real thumbnail would mean rendering
+                        # a full PDF preview per card — too heavy for a
+                        # gallery grid with potentially many profiles.
+                        st.markdown(
+                            f'<div style="display:flex; height:8px; border-radius:4px; overflow:hidden; margin-bottom:8px;">'
+                            f'<div style="flex:1; background-color:{preview["primary_color"]};"></div>'
+                            f'<div style="flex:1; background-color:{preview["accent_color"]};"></div>'
+                            f'</div>',
+                            unsafe_allow_html=True,
+                        )
+
+                        st.markdown(f"**{profile_name}**")
+                        display_name = preview["full_name"] or t("gallery_untitled")
+                        st.caption(display_name)
+                        st.caption(f"🎨 {preview['selected_template']}")
+                        if preview["modified"]:
+                            st.caption(t("gallery_last_saved").format(date=preview["modified"].strftime("%d %b %Y, %H:%M")))
+
+                        card_col1, card_col2 = st.columns(2)
+                        with card_col1:
+                            if st.button(t("gallery_load_btn"), key=f"gallery_open_{profile_name}", use_container_width=True):
+                                if load_profile_by_name(profile_name):
+                                    st.success(t("gallery_loaded").format(name=profile_name))
+                                    st.rerun()
+                        with card_col2:
+                            confirm_key = f"gallery_confirm_delete_{profile_name}"
+                            if st.session_state.get(confirm_key, False):
+                                if st.button(t("gallery_delete_btn"), key=f"gallery_delete_confirm_{profile_name}", use_container_width=True, type="primary"):
+                                    os.remove(os.path.join(SAVED_PROFILES_DIR, f"{profile_name}.json"))
+                                    st.session_state[confirm_key] = False
+                                    st.success(t("gallery_deleted").format(name=profile_name))
+                                    st.rerun()
+                            else:
+                                if st.button(t("gallery_delete_btn"), key=f"gallery_delete_{profile_name}", use_container_width=True):
+                                    st.session_state[confirm_key] = True
+                                    st.rerun()
+                            if st.session_state.get(confirm_key, False):
+                                st.caption(f"⚠️ {t('gallery_delete_confirm')}")
+
+# ============================================================================
 # SIDEBAR - LANGUAGE SWITCHER & PROFILE MANAGEMENT
 # ============================================================================
 
@@ -2518,82 +2604,6 @@ def render_pdf_preview(pdf_bytes: bytes):
             st.image(img_bytes, caption=f"Page {page_num + 1}", use_container_width=True)
     except Exception as e:
         st.warning(f"Could not render visual preview: {e}")
-
-# ============================================================================
-# GALLERY VIEW — browse and open saved profiles as visual cards
-# ============================================================================
-# Each saved profile is just one JSON file (name -> full content + full
-# styling/layout config, via collect_full_config()/apply_full_config()).
-# That's already a perfectly serviceable lightweight "database" for a
-# single-user tool like this — no separate DB engine needed. This gallery
-# is the browsing layer on top of it: a visual grid instead of a bare
-# dropdown, so picking the right saved CV doesn't require remembering exact
-# file names.
-with st.expander(t("gallery_header"), expanded=False):
-    st.caption(t("gallery_subtitle"))
-    gallery_files = [f.replace(".json", "") for f in os.listdir(SAVED_PROFILES_DIR) if f.endswith(".json")]
-
-    if not gallery_files:
-        st.info(t("gallery_empty"))
-    else:
-        # Sort newest-first by file modified time, so recently saved/edited
-        # profiles surface at the top instead of alphabetical order.
-        gallery_files.sort(
-            key=lambda n: os.path.getmtime(os.path.join(SAVED_PROFILES_DIR, f"{n}.json")),
-            reverse=True,
-        )
-
-        cards_per_row = 3
-        for row_start in range(0, len(gallery_files), cards_per_row):
-            row_names = gallery_files[row_start:row_start + cards_per_row]
-            cols = st.columns(cards_per_row)
-            for col, profile_name in zip(cols, row_names):
-                with col:
-                    with st.container(border=True):
-                        preview = get_profile_preview(profile_name)
-
-                        # Color swatch strip (primary/accent) gives an
-                        # at-a-glance visual identity to each card, since
-                        # generating a real thumbnail would mean rendering
-                        # a full PDF preview per card — too heavy for a
-                        # gallery grid with potentially many profiles.
-                        st.markdown(
-                            f'<div style="display:flex; height:8px; border-radius:4px; overflow:hidden; margin-bottom:8px;">'
-                            f'<div style="flex:1; background-color:{preview["primary_color"]};"></div>'
-                            f'<div style="flex:1; background-color:{preview["accent_color"]};"></div>'
-                            f'</div>',
-                            unsafe_allow_html=True,
-                        )
-
-                        st.markdown(f"**{profile_name}**")
-                        display_name = preview["full_name"] or t("gallery_untitled")
-                        st.caption(display_name)
-                        st.caption(f"🎨 {preview['selected_template']}")
-                        if preview["modified"]:
-                            st.caption(t("gallery_last_saved").format(date=preview["modified"].strftime("%d %b %Y, %H:%M")))
-
-                        card_col1, card_col2 = st.columns(2)
-                        with card_col1:
-                            if st.button(t("gallery_load_btn"), key=f"gallery_open_{profile_name}", use_container_width=True):
-                                if load_profile_by_name(profile_name):
-                                    st.success(t("gallery_loaded").format(name=profile_name))
-                                    st.rerun()
-                        with card_col2:
-                            confirm_key = f"gallery_confirm_delete_{profile_name}"
-                            if st.session_state.get(confirm_key, False):
-                                if st.button(t("gallery_delete_btn"), key=f"gallery_delete_confirm_{profile_name}", use_container_width=True, type="primary"):
-                                    os.remove(os.path.join(SAVED_PROFILES_DIR, f"{profile_name}.json"))
-                                    st.session_state[confirm_key] = False
-                                    st.success(t("gallery_deleted").format(name=profile_name))
-                                    st.rerun()
-                            else:
-                                if st.button(t("gallery_delete_btn"), key=f"gallery_delete_{profile_name}", use_container_width=True):
-                                    st.session_state[confirm_key] = True
-                                    st.rerun()
-                            if st.session_state.get(confirm_key, False):
-                                st.caption(f"⚠️ {t('gallery_delete_confirm')}")
-
-
 
 # ============================================================================
 # TWO-COLUMN SPLIT WITH INDEPENDENT SCROLL CONTAINERS
