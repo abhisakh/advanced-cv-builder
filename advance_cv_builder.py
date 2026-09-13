@@ -1235,6 +1235,56 @@ if "supabase_user" not in st.session_state:
     st.session_state.supabase_user = None
 
 if SUPABASE_CONFIGURED and st.session_state.supabase_user is None:
+    # 🎨 Inject CSS specifically targeting the login/signup container
+    st.markdown(
+        """
+        <style>
+        /* 1. Target Streamlit's primary page container to limit its width */
+        .stMainBlockContainer, .block-container, [data-testid="stMainBlockContainer"] {
+            max-width: 780px !important;
+            padding-top: 5rem !important;
+            padding-bottom: 5rem !important;
+            margin: 0 auto !important;
+        }
+
+        /* 2. FORCE Input Text Labels ("Email", "Password") to resize */
+        [data-testid="stWidgetLabel"] p, label p {
+            font-size: 1.4rem !important; /* Scale up or down as needed */
+            font-weight: 600 !important;
+        }
+
+        /* 3. FORCE the Tab Headers ("Login", "Sign Up") to resize */
+        [data-testid="stTab"] p {
+            font-size: 1.3rem !important;
+            font-weight: 500 !important;
+        }
+
+        /* 4. Optional: Add a clean visual border/card shadow around your forms */
+        div[data-testid="stForm"] {
+            border: 4px solid rgba(49, 51, 63, 0.2) !important;
+            border-radius: 8px !important;
+            padding: 4rem !important;
+            background-color: transparent;
+        }
+
+        /* 5. FORCE Form Submit Buttons to resize text and look prominent */
+        div[data-testid="stFormSubmitButton"] button p,
+        button[kind="primaryFormSubmit"] p {
+            font-size: 1.3rem !important; /* Scale this value up or down as you like */
+            font-weight: 600 !important;
+        }
+
+        /* Optional: Add extra padding inside the button itself to make it taller */
+        div[data-testid="stFormSubmitButton"] button {
+            padding-top: 0.6rem !important;
+            padding-bottom: 0.6rem !important;
+        }
+        </style>
+
+        """,
+        unsafe_allow_html=True
+    )
+
     st.title(t("auth_welcome"))
     tab_login, tab_signup = st.tabs([t("auth_tab_login"), t("auth_tab_signup")])
     client = get_supabase_client()
