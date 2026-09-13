@@ -16,6 +16,7 @@ from xhtml2pdf import pisa
 from PIL import Image, ImageDraw
 from google import genai
 from dotenv import load_dotenv
+from supabase import create_client, Client
 
 load_dotenv()
 
@@ -125,6 +126,19 @@ TRANSLATIONS = {
         "gallery_loaded": "✅ Opened '{name}'",
         "gallery_last_saved": "Last saved: {date}",
         "gallery_untitled": "(No name yet)",
+        "auth_welcome": "🔐 Welcome to CV Builder Pro",
+        "auth_tab_login": "Log In",
+        "auth_tab_signup": "Sign Up",
+        "auth_email": "Email",
+        "auth_password": "Password",
+        "auth_login_btn": "Log In",
+        "auth_signup_btn": "Create Account",
+        "auth_logout_btn": "🚪 Log Out",
+        "auth_login_error": "Login failed: {error}",
+        "auth_signup_success": "✅ Account created! Check your email to confirm, then log in.",
+        "auth_signup_error": "Sign up failed: {error}",
+        "auth_logged_in_as": "Logged in as {email}",
+        "auth_offline_mode": "ℹ️ Running in offline/local mode (Supabase not configured) — profiles save to local files on this machine.",
         "photo_pos_header_right": "Header Right",
         "photo_pos_header_left": "Header Left",
         "photo_pos_header_center": "Header Center",
@@ -312,6 +326,19 @@ TRANSLATIONS = {
         "gallery_loaded": "✅ '{name}' geöffnet",
         "gallery_last_saved": "Zuletzt gespeichert: {date}",
         "gallery_untitled": "(Noch kein Name)",
+        "auth_welcome": "🔐 Willkommen bei CV Builder Pro",
+        "auth_tab_login": "Anmelden",
+        "auth_tab_signup": "Registrieren",
+        "auth_email": "E-Mail",
+        "auth_password": "Passwort",
+        "auth_login_btn": "Anmelden",
+        "auth_signup_btn": "Konto erstellen",
+        "auth_logout_btn": "🚪 Abmelden",
+        "auth_login_error": "Anmeldung fehlgeschlagen: {error}",
+        "auth_signup_success": "✅ Konto erstellt! Bitte E-Mail bestätigen und dann anmelden.",
+        "auth_signup_error": "Registrierung fehlgeschlagen: {error}",
+        "auth_logged_in_as": "Angemeldet als {email}",
+        "auth_offline_mode": "ℹ️ Offline-/lokaler Modus (Supabase nicht konfiguriert) — Profile werden lokal auf diesem Rechner gespeichert.",
         "photo_pos_header_right": "Kopfzeile rechts",
         "photo_pos_header_left": "Kopfzeile links",
         "photo_pos_header_center": "Kopfzeile mittig",
@@ -543,6 +570,41 @@ os.makedirs(VERSION_HISTORY_DIR, exist_ok=True)
 os.makedirs(AUTOSAVE_DIR, exist_ok=True)
 AUTOSAVE_FILE = os.path.join(AUTOSAVE_DIR, "latest_autosave.json")
 
+# ============================================================================
+# SUPABASE — cloud storage for saved CV profiles, one row per profile per
+# user (see supabase_schema.sql). Reads credentials from Streamlit Cloud's
+# secrets.toml first (st.secrets), falling back to local .env / shell env
+# vars (via python-dotenv, already loaded above) for local development —
+# so the exact same code runs unchanged in both places.
+# ============================================================================
+def _get_supabase_config():
+    try:
+        url = st.secrets.get("SUPABASE_URL")
+        key = st.secrets.get("SUPABASE_PUBLISHABLE_KEY")
+    except Exception:
+        # No secrets.toml present at all (e.g. plain local dev without
+        # Streamlit Cloud) — fall through to environment variables only.
+        url, key = None, None
+    url = url or os.environ.get("SUPABASE_URL")
+    key = key or os.environ.get("SUPABASE_PUBLISHABLE_KEY")
+    return url, key
+
+@st.cache_resource(show_spinner=False)
+def get_supabase_client() -> "Client | None":
+    """One shared client per Streamlit process. Returns None (rather than
+    raising) when credentials aren't configured, so the rest of the app can
+    degrade gracefully instead of crashing on import/startup.
+    """
+    url, key = _get_supabase_config()
+    if not url or not key:
+        return None
+    try:
+        return create_client(url, key)
+    except Exception:
+        return None
+
+SUPABASE_CONFIGURED = all(_get_supabase_config())
+
 CV_TEMPLATES = {
     "Modern": {
         "layout": "two-column",
@@ -733,10 +795,8 @@ def export_items(items: List[Dict], predicate) -> List[Dict]:
 
 
 def validate_email(email: str) -> bool:
-    # Allows alphanumeric TLDs (to support modern IDN TLDs)
-    # and prevents consecutive dots in the domain
-    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z0-9-]{2,}$'
-    return bool(re.match(pattern, email))
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(pattern, email) is not None
 
 def validate_url(url: str) -> bool:
     pattern = r'^https?://[^\s/$.?#].[^\s]*$'
@@ -865,19 +925,99 @@ def _on_template_change():
     # displayed as if it were still active.
     st.session_state.layout_template_applied = False
 
-def load_profile_by_name(profile_name: str) -> bool:
-    """Load a saved profile JSON by name into session_state (content +
-    full styling/config). Returns True on success. Caller is responsible
-    for calling st.rerun() afterward — this only mutates state.
+def _current_user_id():
+    user = st.session_state.get("supabase_user")
+    return user["id"] if user else None
+
+def _use_cloud_storage() -> bool:
+    """True once Supabase is configured AND someone is actually logged in.
+    Every profile function below branches on this, so the exact same app
+    still works fully offline (local JSON, single-user) if Supabase isn't
+    set up, or before a user logs in.
     """
-    file_path = os.path.join(SAVED_PROFILES_DIR, f"{profile_name}.json")
-    if not os.path.exists(file_path):
-        return False
+    return SUPABASE_CONFIGURED and _current_user_id() is not None
+
+def list_profile_names() -> List[str]:
+    """Names of all profiles the current user can see — their own Supabase
+    rows once logged in, or every local JSON file when running offline.
+    """
+    if _use_cloud_storage():
+        client = get_supabase_client()
+        try:
+            res = client.table("cv_profiles").select("profile_name").eq("user_id", _current_user_id()).execute()
+            return [row["profile_name"] for row in res.data]
+        except Exception:
+            return []
+    return [f.replace(".json", "") for f in os.listdir(SAVED_PROFILES_DIR) if f.endswith(".json")]
+
+def save_profile_data(profile_name: str, data: Dict) -> bool:
+    """Save (create or overwrite) one named profile for the current user."""
+    if _use_cloud_storage():
+        client = get_supabase_client()
+        try:
+            client.table("cv_profiles").upsert({
+                "user_id": _current_user_id(),
+                "profile_name": profile_name,
+                "data": data,
+            }, on_conflict="user_id,profile_name").execute()
+            return True
+        except Exception:
+            return False
     try:
-        with open(file_path, "r") as f:
-            loaded_data = json.load(f)
+        file_path = os.path.join(SAVED_PROFILES_DIR, f"{profile_name}.json")
+        with open(file_path, "w") as f:
+            json.dump(data, f, indent=2)
+        return True
     except Exception:
         return False
+
+def delete_profile_by_name(profile_name: str) -> bool:
+    if _use_cloud_storage():
+        client = get_supabase_client()
+        try:
+            client.table("cv_profiles").delete().eq("user_id", _current_user_id()).eq("profile_name", profile_name).execute()
+            return True
+        except Exception:
+            return False
+    try:
+        os.remove(os.path.join(SAVED_PROFILES_DIR, f"{profile_name}.json"))
+        return True
+    except Exception:
+        return False
+
+def load_profile_by_name(profile_name: str) -> bool:
+    """Load a saved profile by name into session_state (content + full
+    styling/config) — from Supabase once logged in, local JSON otherwise.
+    Returns True on success. Caller is responsible for calling st.rerun()
+    afterward — this only mutates state.
+    """
+    loaded_data = None
+    if _use_cloud_storage():
+        client = get_supabase_client()
+        try:
+            res = (
+                client.table("cv_profiles")
+                .select("data")
+                .eq("user_id", _current_user_id())
+                .eq("profile_name", profile_name)
+                .single()
+                .execute()
+            )
+            loaded_data = res.data["data"] if res.data else None
+        except Exception:
+            loaded_data = None
+    else:
+        file_path = os.path.join(SAVED_PROFILES_DIR, f"{profile_name}.json")
+        if os.path.exists(file_path):
+            try:
+                with open(file_path, "r") as f:
+                    loaded_data = json.load(f)
+            except Exception:
+                loaded_data = None
+
+    if loaded_data is None:
+        return False
+
     st.session_state.cv_data = loaded_data
     st.session_state.custom_sections = loaded_data.get("custom_sections", [])
     st.session_state.custom_section_types = loaded_data.get("custom_section_types", {})
@@ -893,7 +1033,6 @@ def get_profile_preview(profile_name: str) -> Dict:
     card grid — full name, template, colors, last-saved date — without
     needing to fully apply/restore it into session_state.
     """
-    file_path = os.path.join(SAVED_PROFILES_DIR, f"{profile_name}.json")
     preview = {
         "full_name": "",
         "selected_template": "Modern",
@@ -901,6 +1040,30 @@ def get_profile_preview(profile_name: str) -> Dict:
         "accent_color": "#0066cc",
         "modified": None,
     }
+    if _use_cloud_storage():
+        client = get_supabase_client()
+        try:
+            res = (
+                client.table("cv_profiles")
+                .select("data,updated_at")
+                .eq("user_id", _current_user_id())
+                .eq("profile_name", profile_name)
+                .single()
+                .execute()
+            )
+            if res.data:
+                data = res.data["data"]
+                preview["full_name"] = data.get("full_name", "")
+                preview["selected_template"] = data.get("selected_template") or preview["selected_template"]
+                preview["primary_color"] = data.get("primary_color") or preview["primary_color"]
+                preview["accent_color"] = data.get("accent_color") or preview["accent_color"]
+                if res.data.get("updated_at"):
+                    preview["modified"] = datetime.fromisoformat(res.data["updated_at"].replace("Z", "+00:00"))
+        except Exception:
+            pass
+        return preview
+
+    file_path = os.path.join(SAVED_PROFILES_DIR, f"{profile_name}.json")
     try:
         with open(file_path, "r") as f:
             data = json.load(f)
@@ -1060,6 +1223,52 @@ def t(key: str) -> str:
     lang_dict = TRANSLATIONS.get(st.session_state.language, TRANSLATIONS["en"])
     return lang_dict.get(key, TRANSLATIONS["en"].get(key, key))
 
+# ============================================================================
+# AUTH GATE — Supabase login/signup, blocking the rest of the app until
+# someone is logged in. If Supabase isn't configured at all (no
+# SUPABASE_URL/SUPABASE_PUBLISHABLE_KEY found in st.secrets or the
+# environment), the app runs in offline/local mode instead — same as
+# before this feature existed — so this is non-breaking for anyone not
+# using Supabase yet.
+# ============================================================================
+if "supabase_user" not in st.session_state:
+    st.session_state.supabase_user = None
+
+if SUPABASE_CONFIGURED and st.session_state.supabase_user is None:
+    st.title(t("auth_welcome"))
+    tab_login, tab_signup = st.tabs([t("auth_tab_login"), t("auth_tab_signup")])
+    client = get_supabase_client()
+
+    with tab_login:
+        with st.form("login_form"):
+            login_email = st.text_input(t("auth_email"), key="login_email")
+            login_password = st.text_input(t("auth_password"), type="password", key="login_password")
+            if st.form_submit_button(t("auth_login_btn"), use_container_width=True):
+                try:
+                    res = client.auth.sign_in_with_password({"email": login_email, "password": login_password})
+                    st.session_state.supabase_user = {"id": res.user.id, "email": res.user.email}
+                    st.rerun()
+                except Exception as e:
+                    st.error(t("auth_login_error").format(error=str(e)))
+
+    with tab_signup:
+        with st.form("signup_form"):
+            signup_email = st.text_input(t("auth_email"), key="signup_email")
+            signup_password = st.text_input(t("auth_password"), type="password", key="signup_password")
+            if st.form_submit_button(t("auth_signup_btn"), use_container_width=True):
+                try:
+                    client.auth.sign_up({"email": signup_email, "password": signup_password})
+                    st.success(t("auth_signup_success"))
+                except Exception as e:
+                    st.error(t("auth_signup_error").format(error=str(e)))
+
+    st.stop()  # Nothing below this runs until supabase_user is set above.
+elif not SUPABASE_CONFIGURED:
+    # Offline/local mode: no login, profiles save to local JSON files —
+    # identical behavior to before Supabase support was added.
+    pass
+
+
 st.markdown(
     """
     <style>
@@ -1211,15 +1420,18 @@ if "photo_data" not in st.session_state:
 # before the "SIDEBAR - TEMPLATE SELECTION" section below.
 with st.expander(t("gallery_header"), expanded=False):
     st.caption(t("gallery_subtitle"))
-    gallery_files = [f.replace(".json", "") for f in os.listdir(SAVED_PROFILES_DIR) if f.endswith(".json")]
+    gallery_files = list_profile_names()
 
     if not gallery_files:
         st.info(t("gallery_empty"))
     else:
-        # Sort newest-first by file modified time, so recently saved/edited
-        # profiles surface at the top instead of alphabetical order.
+        # Sort newest-first by last-saved time (file mtime locally, or the
+        # Supabase row's updated_at once logged in — get_profile_preview
+        # already abstracts over which one applies), so recently saved/
+        # edited profiles surface at the top instead of alphabetical order.
+        gallery_previews = {name: get_profile_preview(name) for name in gallery_files}
         gallery_files.sort(
-            key=lambda n: os.path.getmtime(os.path.join(SAVED_PROFILES_DIR, f"{n}.json")),
+            key=lambda n: gallery_previews[n]["modified"] or datetime.min,
             reverse=True,
         )
 
@@ -1230,7 +1442,7 @@ with st.expander(t("gallery_header"), expanded=False):
             for col, profile_name in zip(cols, row_names):
                 with col:
                     with st.container(border=True):
-                        preview = get_profile_preview(profile_name)
+                        preview = gallery_previews[profile_name]
 
                         # Color swatch strip (primary/accent) gives an
                         # at-a-glance visual identity to each card, since
@@ -1262,7 +1474,7 @@ with st.expander(t("gallery_header"), expanded=False):
                             confirm_key = f"gallery_confirm_delete_{profile_name}"
                             if st.session_state.get(confirm_key, False):
                                 if st.button(t("gallery_delete_btn"), key=f"gallery_delete_confirm_{profile_name}", use_container_width=True, type="primary"):
-                                    os.remove(os.path.join(SAVED_PROFILES_DIR, f"{profile_name}.json"))
+                                    delete_profile_by_name(profile_name)
                                     st.session_state[confirm_key] = False
                                     st.success(t("gallery_deleted").format(name=profile_name))
                                     st.rerun()
@@ -1279,6 +1491,18 @@ with st.expander(t("gallery_header"), expanded=False):
 
 st.sidebar.title("🎯 CV Builder Pro")
 
+if SUPABASE_CONFIGURED and st.session_state.supabase_user:
+    st.sidebar.caption(t("auth_logged_in_as").format(email=st.session_state.supabase_user["email"]))
+    if st.sidebar.button(t("auth_logout_btn"), use_container_width=True):
+        try:
+            get_supabase_client().auth.sign_out()
+        except Exception:
+            pass
+        st.session_state.supabase_user = None
+        st.rerun()
+elif not SUPABASE_CONFIGURED:
+    st.sidebar.caption(t("auth_offline_mode"))
+
 selected_lang_label = st.sidebar.selectbox(
     t("lang_switch_label"),
     options=["English", "Deutsch"],
@@ -1290,7 +1514,7 @@ if new_lang_code != st.session_state.language:
     st.rerun()
 
 with st.sidebar.expander(t("sidebar_profile"), expanded=True):
-    saved_files = [f.replace(".json", "") for f in os.listdir(SAVED_PROFILES_DIR) if f.endswith(".json")]
+    saved_files = list_profile_names()
 
     col_load, col_new = st.columns(2)
 
@@ -1313,10 +1537,10 @@ with st.sidebar.expander(t("sidebar_profile"), expanded=True):
                 st.session_state.cv_data["section_order"] = st.session_state.section_order
                 st.session_state.cv_data["photo_data"] = st.session_state.photo_data
                 st.session_state.cv_data.update(collect_full_config())
-                file_path = os.path.join(SAVED_PROFILES_DIR, f"{new_profile_name}.json")
-                with open(file_path, "w") as f:
-                    json.dump(st.session_state.cv_data, f, indent=2)
-                st.success(f"✅ Saved '{new_profile_name}'")
+                if save_profile_data(new_profile_name, st.session_state.cv_data):
+                    st.success(f"✅ Saved '{new_profile_name}'")
+                else:
+                    st.error("⚠️ Save failed — check the console/logs.")
 
     st.divider()
     st.caption(t("import_profile_json"))
